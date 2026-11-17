@@ -1,0 +1,127 @@
+{
+  "blender": "5.2.0 LTS",
+  "blend_files": [
+    {
+      "file": "air-handler.blend",
+      "mesh_objects": 58,
+      "camera": false
+    },
+    {
+      "file": "field.blend",
+      "mesh_objects": 441,
+      "camera": true
+    },
+    {
+      "file": "greenhouse.blend",
+      "mesh_objects": 424,
+      "camera": true
+    },
+    {
+      "file": "harvest-cart.blend",
+      "mesh_objects": 75,
+      "camera": false
+    },
+    {
+      "file": "lettuce-detail.blend",
+      "mesh_objects": 2399,
+      "camera": true
+    },
+    {
+      "file": "lettuce-low.blend",
+      "mesh_objects": 1,
+      "camera": false
+    },
+    {
+      "file": "lettuce.blend",
+      "mesh_objects": 1,
+      "camera": false
+    },
+    {
+      "file": "pump.blend",
+      "mesh_objects": 28,
+      "camera": false
+    },
+    {
+      "file": "rack-tier.blend",
+      "mesh_objects": 74,
+      "camera": false
+    },
+    {
+      "file": "tank.blend",
+      "mesh_objects": 22,
+      "camera": false
+    },
+    {
+      "file": "vertical-farm.blend",
+      "mesh_objects": 2399,
+      "camera": true
+    }
+  ],
+  "models": [
+    {
+      "file": "air-handler.glb",
+      "bytes": 673048,
+      "triangles": 13936,
+      "generator": "Khronos glTF Blender I/O v5.2.39"
+    },
+    {
+      "file": "harvest-cart.glb",
+      "bytes": 899444,
+      "triangles": 21532,
+      "generator": "Khronos glTF Blender I/O v5.2.39"
+    },
+    {
+      "file": "lettuce-low.glb",
+      "bytes": 74556,
+      "triangles": 2520,
+      "generator": "Khronos glTF Blender I/O v5.2.39"
+    },
+    {
+      "file": "lettuce.glb",
+      "bytes": 204596,
+      "triangles": 7560,
+      "generator": "Khronos glTF Blender I/O v5.2.39"
+    },
+    {
+      "file": "pump.glb",
+      "bytes": 213540,
+      "triangles": 6176,
+      "generator": "Khronos glTF Blender I/O v5.2.39"
+    },
+    {
+      "file": "rack-tier.glb",
+      "bytes": 551476,
+      "triangles": 13912,
+      "generator": "Khronos glTF Blender I/O v5.2.39"
+    },
+    {
+      "file": "tank.glb",
+      "bytes": 269696,
+      "triangles": 7300,
+      "generator": "Khronos glTF Blender I/O v5.2.39"
+    }
+  ],
+  "renders": [
+    {
+      "file": "vertical-farm.png",
+      "width": 2048,
+      "height": 1408
+    },
+    {
+      "file": "greenhouse.png",
+      "width": 2048,
+      "height": 1408
+    },
+    {
+      "file": "field.png",
+      "width": 2048,
+      "height": 1408
+    },
+    {
+      "file": "lettuce-detail.png",
+      "width": 2048,
+      "height": 1408
+    }
+  ],
+  "passed": true
+}

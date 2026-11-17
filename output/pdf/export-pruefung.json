@@ -1,0 +1,11 @@
+{
+  "baseURL": "http://127.0.0.1:4173",
+  "words": 403,
+  "printPixels": {
+    "width": 702.984375,
+    "height": 914.578125
+  },
+  "maxContentHeight": 1031.8110236220473,
+  "state": "Basisszenario und bearbeitbare Beispielposition B",
+  "internet": "Externe Anfragen blockiert"
+}

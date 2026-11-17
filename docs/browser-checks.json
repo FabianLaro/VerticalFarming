@@ -1,0 +1,106 @@
+{
+  "date": "2026-11-17",
+  "baseURL": "http://127.0.0.1:4173",
+  "browser": "149.0.7827.55",
+  "checks": [
+    {
+      "name": "Initiale echte WebGL-Szene und lokales Laden ohne Internetzugriff",
+      "passed": true
+    },
+    {
+      "name": "Kompakter Einstieg und Hintergrundthemen zeigen Details erst auf Anfrage",
+      "passed": true
+    },
+    {
+      "name": "Strompreis ändert Kosten, weder Ernte noch Energie",
+      "passed": true
+    },
+    {
+      "name": "Ebenen verändern Geometrieparameter und Kennzahlen; Tastatur und vollständiger Reset",
+      "passed": true
+    },
+    {
+      "name": "Anderer Emissionsfaktor verändert keine Produktion",
+      "passed": true
+    },
+    {
+      "name": "Parameterhilfen sind erreichbar und Sensitivität trennt Energie, Ertrag und Strompreis",
+      "passed": true
+    },
+    {
+      "name": "Vergleich: gleiche Fläche und gleiche Ernte, echte Datenlücken",
+      "passed": true
+    },
+    {
+      "name": "Quellendialog: Original-URLs, Fundstellen und Escape-Taste",
+      "passed": true
+    },
+    {
+      "name": "Strukturiertes Datenverzeichnis exportiert Quellen, Metadaten und aktuellen Szenariostand lokal",
+      "passed": true
+    },
+    {
+      "name": "Entscheidung: zwei Prioritäten, persistente Bearbeitung und Exportvalidierung",
+      "passed": true
+    },
+    {
+      "name": "Quellenwechsel am Kriterium aktualisiert Beleg, Brief und Speicherung ohne eigene Aussage zu ersetzen",
+      "passed": true
+    },
+    {
+      "name": "Aktuelles Drucklayout wird unabhängig vom Wortlimit auf A4-Passung geprüft",
+      "passed": true
+    },
+    {
+      "name": "Aktuelle Parameter und Ergebnisse werden in den Brief übernommen",
+      "passed": true
+    },
+    {
+      "name": "Vortragsmodus mit sechs vollständigen Schritten",
+      "passed": true
+    },
+    {
+      "name": "Lokale Blender-Galerie zeigt vier Bilder mit 2048 × 1408 Pixeln; Großansicht, Pfeiltasten und Escape funktionieren",
+      "passed": true
+    },
+    {
+      "name": "Tablet und Smartphone: alle Bereiche ohne Seitenüberlauf, Touchbedienung",
+      "passed": true
+    },
+    {
+      "name": "Reduzierte Bewegung und technische Ersatzansicht",
+      "passed": true
+    },
+    {
+      "name": "Keine relevanten Browserfehler und keine externen Laufzeitabrufe",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "localAssetStatuses": {
+    "/renders/vertical-farm.png": 200,
+    "/models/rack-tier.glb": 200,
+    "/models/tank.glb": 200,
+    "/models/lettuce.glb": 200,
+    "/models/pump.glb": 200,
+    "/models/air-handler.glb": 200,
+    "/models/harvest-cart.glb": 200,
+    "/renders/greenhouse.png": 200,
+    "/renders/field.png": 200,
+    "/renders/lettuce-detail.png": 200
+  },
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 (0x00002786) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "initialLayout": {
+    "viewerTop": 165,
+    "resultsTop": 612.59375,
+    "pageHeight": 920
+  },
+  "printLayout": {
+    "measuredHeightCssPx": 915,
+    "availableHeightCssPx": 1031.8110236220473,
+    "liveWords": 403,
+    "domWords": 403
+  },
+  "passed": true
+}

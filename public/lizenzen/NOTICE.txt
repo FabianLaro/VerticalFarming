@@ -1,0 +1,48 @@
+Stadtlabor 2040 - Hinweise zu direkt verwendeten Laufzeitbestandteilen
+Stand: 16.11.2026
+
+React 19.3.1 und React DOM 19.3.1 - MIT
+https://github.com/facebook/react
+Lizenztexte: React-MIT.txt, React-DOM-MIT.txt
+
+Three.js 0.187.0 - MIT
+https://github.com/mrdoob/three.js
+Lizenztext: Three-MIT.txt
+
+React Three Fiber 9.8.2 - MIT
+https://github.com/pmndrs/react-three-fiber
+Lizenztext: React-Three-Fiber-MIT.txt
+Die installierte Paketfassung enthielt keinen eigenen LICENSE-Text.
+Der Text wurde am 16.11.2026 unveraendert aus dem offiziellen Repository
+https://raw.githubusercontent.com/pmndrs/react-three-fiber/master/LICENSE
+uebernommen; Paketmetadaten kennzeichnen die Version ebenfalls als MIT.
+
+Drei 10.7.9 - MIT
+https://github.com/pmndrs/drei
+Lizenztext: Drei-MIT.txt
+
+Phosphor React 2.1.10 - MIT
+https://github.com/phosphor-icons/react
+Lizenztext: Phosphor-MIT.txt
+
+Manrope Variable (Paketversion 5.3.0) - SIL Open Font License 1.1
+Copyright 2019 The Manrope Project Authors
+https://github.com/sharanda/manrope
+https://fontsource.org/fonts/manrope
+Lizenztext: Manrope-OFL.txt
+Die Schrift wird lokal und unveraendert eingebunden.
+
+Alle anderen vorstehenden Lizenztexte wurden unveraendert aus den lokal
+installierten Paketen kopiert. Copyright- und Lizenzhinweise bei Weitergabe
+beibehalten. Transitive Abhaengigkeiten behalten ihre eigenen Bedingungen;
+dieses Verzeichnis benennt direkte Runtime-Pakete und erteilt keine neue
+Lizenz fuer die gesamte Anwendung.
+
+Prozedurale 3D-Modelle, Ersatzschemata und Datenvisualisierungen wurden
+fuer dieses Projekt erstellt. Keine externen Fotos, Texturen oder fremden
+3D-Modelldateien wurden eingebunden. Wissenschaftliche Quellen sind
+verlinkt und paraphrasiert, nicht als Vollpublikationen kopiert.
+
+Das lokal bereitgestellte Unterrichts-PDF stammt vom Nutzer. Die obigen
+Software- und Schriftlizenzen erteilen keine Veroeffentlichungsrechte daran.
+Weitere Herkunftsangaben: docs/assets-und-lizenzen.md im Projektordner.

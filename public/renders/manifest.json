@@ -1,0 +1,43 @@
+{
+  "authored": "2026-11-16",
+  "generator": "Blender 5.2 / scripts/blender/build_assets.py and outdoor_scenes.py",
+  "engine": "Cycles / OPTIX / 128 adaptive samples / denoised",
+  "resolution": [
+    2048,
+    1408
+  ],
+  "assets": [
+    {
+      "system": "vertical",
+      "file": "vertical-farm.png",
+      "levels": 4,
+      "camera": "Individually framed orthographic exhibition view",
+      "modelSource": "output/blender/vertical-farm.blend",
+      "meaning": "Fixed illustrative reference geometry, no operating plant, no live scenario state"
+    },
+    {
+      "system": "greenhouse",
+      "file": "greenhouse.png",
+      "levels": 1,
+      "camera": "Individually framed orthographic exhibition view",
+      "modelSource": "output/blender/greenhouse.blend",
+      "meaning": "Fixed illustrative reference geometry, no operating plant, no live scenario state"
+    },
+    {
+      "system": "field",
+      "file": "field.png",
+      "levels": 1,
+      "camera": "Individually framed orthographic exhibition view",
+      "modelSource": "output/blender/field.blend",
+      "meaning": "Fixed illustrative reference geometry, no operating plant, no live scenario state"
+    },
+    {
+      "system": "vertical",
+      "file": "lettuce-detail.png",
+      "levels": 4,
+      "camera": "67 mm perspective, f/9 depth of field, leaf/NFT/LED detail",
+      "modelSource": "output/blender/lettuce-detail.blend",
+      "meaning": "Fixed close-up of authored organic leaf geometry, not a growth simulation"
+    }
+  ]
+}

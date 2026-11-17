@@ -1,0 +1,13 @@
+import { useState } from 'react'
+import { PARAMS, sensitivity } from '../lib/model'
+import type { Input, InputKey } from '../lib/model'
+import { number, percentChange } from '../lib/format'
+
+export function Sensitivity({ input }: { input: Input }) {
+  const [key, setKey] = useState<InputKey>('energyPerKg')
+  const param = PARAMS.find(item => item.key === key)!
+  const low = Math.max(param.min, input[key] * 0.8)
+  const high = Math.min(param.max, input[key] * 1.2)
+  const values = sensitivity(input, key, low, high)
+  return <section className="sensitivity no-print"><div><h2>Annahmen prüfen</h2><p>Ein Parameter variiert um bis zu ±20 % innerhalb der Eingabegrenzen. Die übrigen Werte bleiben gleich.</p><label htmlFor="sensitivity-key">Welche Annahme ist unsicher?</label><select id="sensitivity-key" value={key} onChange={event => setKey(event.target.value as InputKey)}><option value="energyPerKg">Energie je kg</option><option value="yieldPerArea">Jahresertrag je Anbaufläche</option><option value="electricityPrice">Strompreis</option></select></div><div><table><caption>{param.label} · {param.unit}</caption><thead><tr><th>Ergebnis</th><th>Niedriger<br /><small>{number(low, 2)}</small></th><th>Aktuell<br /><small>{number(input[key], 2)}</small></th><th>Höher<br /><small>{number(high, 2)}</small></th></tr></thead><tbody><tr><th>Ernte · t/a</th>{[values.low, values.current, values.high].map((r, i) => <td key={i}>{number(r.harvest / 1000, 1)}</td>)}</tr><tr><th>Stromkosten · Tsd. €/a</th>{[values.low, values.current, values.high].map((r, i) => <td key={i}>{number(r.electricityCost / 1000, 1)}</td>)}</tr><tr><th>Strombeitrag · t CO₂eq/a</th>{[values.low, values.current, values.high].map((r, i) => <td key={i}>{number(r.emissions / 1000, 1)}</td>)}</tr></tbody></table><p><b>Wirkung der höheren Annahme:</b> Ernte {percentChange(values.high.harvest, values.current.harvest)}, Stromkosten {percentChange(values.high.electricityCost, values.current.electricityCost)}, Strombeitrag {percentChange(values.high.emissions, values.current.emissions)}.</p><p>{key === 'energyPerKg' ? 'Energiebedarf und Stromkosten reagieren proportional auf den Energiebedarf je kg. Die Ernte bleibt unverändert. Diese unsichere Annahme ist für die Umwelt- und Kostenbewertung zentral.' : key === 'yieldPerArea' ? 'Ein höherer Jahresertrag steigert in diesem linearen Modell auch Energie und Wasser proportional. Das ist eine konstante Intensitätsannahme und kein belegtes Wachstumsmodell.' : 'Ein höherer Strompreis verändert nur den Kostenteil. Ernte, Wasser und der Emissionsbeitrag bleiben bei konstantem Betrieb unverändert.'}</p></div></section>
+}
