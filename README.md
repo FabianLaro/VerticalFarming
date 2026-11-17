@@ -17,11 +17,13 @@ Voraussetzung ist **Node.js ab 22.12**. Auf dem Erstellungsrechner war Node.js *
 ## Der Weg durch die Anwendung
 
 - **Erkunden:** Vertical Farm, Gewächshaus und Freiland mit selbst gebauten Blender-Modellen drehen und zoomen. „Schnitt“, „Hülle“ und „Aufbau“ öffnen verschiedene Ansichten. Beschriftete Bauteile und die Markierungen im Modell erklären die Technik. Hochauflösende Bilder stehen unter „Gerenderte Ansichten und Nahaufnahme“; vier Hintergrundthemen öffnen sich bei Bedarf.
-- **Szenarien:** Acht offengelegte Eingaben verändern Fläche, Ernte, Ressourcen, Stromkosten und Strombeitrag. Vorbereitete Szenarien setzen jeweils bei der vollständigen Basis an. „Basis vollständig wiederherstellen“ setzt auch die Standardansicht zurück.
-- **Vergleichen:** Gleiche Grundfläche oder gleiche Jahresernte wählen. Das veränderbare VF-Szenario wird mit gekennzeichneten niederländischen Kopfsalatreferenzen verglichen. Datenlücken bleiben sichtbar.
+- **Szenarien:** Hier wird ausschließlich die Vertical Farm dargestellt und verändert. Acht offengelegte Eingaben verändern Fläche, Ernte, Ressourcen, Stromkosten und Strombeitrag. Vorbereitete Szenarien setzen jeweils bei der vollständigen Basis an. Die freie Modellauswahl bleibt unter „Erkunden“.
+- **Vergleichen:** Gleiche Grundfläche oder gleiche Jahresernte wählen. Die drei Systeme erscheinen gemeinsam in 3D oder als Grundrisse im selben Flächenmaßstab; Balken zeigen die Jahresernte. Das veränderbare VF-Szenario wird mit gekennzeichneten niederländischen Kopfsalatreferenzen verglichen. Datenlücken bleiben sichtbar.
 - **Entscheiden:** Drei Förderoptionen, fünf Kriterien und genau zwei begründete Prioritäten. Belegtext und Quelle sind je Kriterium wählbar; Kurzbeleg und Druckreferenzen folgen der Auswahl. Die Fundstelle lässt sich gesondert öffnen. Die Symbole ergeben keine Gesamtnote.
 
 Die Hauptansicht zeigt Modell und Kernergebnisse zuerst. Hintergrund, Sensitivität, Vergleichstabelle und längere Entscheidungsfelder öffnen sich bei Bedarf. Die [kompakte Fassung](docs/kompakte-fassung.md) dokumentiert die weitere Verdichtung vom 17.11.2026; die [Gestaltungsüberarbeitung](docs/design-ueberarbeitung.md) den vorherigen Entwurf.
+
+Die [Szenario- und Vergleichsgrafik](docs/szenarien-und-vergleich.md) beschreibt den gemeinsamen Flächenmaßstab, die quadratischen Parzellen und die Grenzen der 3D-Darstellung.
 
 „**Vortrag starten**“ führt in sechs Schritten durch ungefähr elf Minuten. Details stehen im [Präsentationsleitfaden](docs/praesentationsleitfaden.md).
 

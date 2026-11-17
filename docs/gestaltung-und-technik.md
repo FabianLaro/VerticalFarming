@@ -27,6 +27,7 @@ Die Seitenstruktur passt sich an schmale Ansichten an; breite Vergleichstabellen
 | `src/components/ScenarioPanel.tsx`, `ComparePanel.tsx`, `Sensitivity.tsx` | Bedienung und Diagramme aus denselben Modellfunktionen |
 | `src/components/Decision.tsx`, `Brief.tsx` | Bearbeitbares Urteil, lokale Speicherung, Pflichtprüfung, einseitige Druckansicht |
 | `src/lib/citations.ts` | Synchronisierte Quellenwahl, Kurzbelege und aktuelle Druckbibliografie |
+| `src/components/ComparisonGraphic.tsx`, `ComparisonScene.tsx`, `src/lib/comparison-layout.ts` | Gemeinsame metrische Grundflächen in 3D und als Grundrisse, dynamisch aus den Vergleichswerten |
 | `src/components/RenderGallery.tsx` | Lokale Renderbilder, Referenz-/Detailansichten und zugängliche Großansicht |
 | `scripts/serve.mjs` | Kleiner lokaler Dienst für den fertigen Build, auf 127.0.0.1 begrenzt |
 | `tests` | Rechen- und Browserprüfungen; Ergebnisse gesondert dokumentiert |
@@ -61,6 +62,8 @@ Eine zunächst geschlossene Galerie zeigt separat berechnete Blender-Renderbilde
 Wiederholte Pflanzenblätter verwenden Instanzen. Der Renderer zeichnet bedarfsgesteuert; es gibt keine dauerhaft laufende Schauanimation. „Sparsam“ reduziert Auflösung, Pflanzengeometrie, Kantenglättung und Schattenaufwand. Die Szene wird verzögert geladen, Fehlergrenzen und ein manuell erreichbares Ersatzschema halten die Lerninhalte zugänglich. React Three Fiber verwaltet die an die Komponentenszene gebundenen Ressourcen beim Abbau.
 
 Die Modelle sind räumliche **Schemata**, keine Ausführungspläne und keine pro Pflanze kalibrierten Produktionsabbilder. Ansichten werden einzeln eingepasst; faire Flächenvergleiche erfolgen im gemeinsamen Maßstab der Diagramme. Stoffwege erläutern Prozesse ohne unbelegte Mengenverhältnisse. Standorteignung, Statik und Genehmigungen bleiben reale Prüfaufgaben.
+
+Die neue Vergleichsgrafik verwendet dagegen für alle drei Grundflächen einen gemeinsamen Metermaßstab und eine gemeinsame orthografische Kamera. Ein umschaltbarer Grundriss zeigt dieselben Flächen; Gebäudehöhen und Pflanzen bleiben schematisch. Der Rechner stellt ausschließlich die Vertical Farm dar. Details und Prüfungen stehen in `docs/szenarien-und-vergleich.md`.
 
 ## Druck und Rückfallebene
 

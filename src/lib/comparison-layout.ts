@@ -1,0 +1,28 @@
+import type { ComparisonRow } from './model'
+
+export interface ComparisonPlot {
+  row: ComparisonRow
+  side: number
+  x: number
+  z: number
+}
+
+/** One metre in every variant uses the same scene unit and the same projection. */
+export function comparisonLayout(rows: ComparisonRow[]) {
+  const sides = rows.map(row => Math.sqrt(Math.max(0, row.footprint)))
+  const depth = Math.max(...sides, 1)
+  const gap = Math.max(depth * .13, 3)
+  const width = sides.reduce((sum, side) => sum + side, 0) + gap * Math.max(0, rows.length - 1)
+  let left = -width / 2
+  const plots: ComparisonPlot[] = rows.map((row, index) => {
+    const side = sides[index]
+    const plot = { row, side, x: left + side / 2, z: -side / 2 }
+    left += side + gap
+    return plot
+  })
+  // A useful round distance, with the same meaning in the plan and 3D scene.
+  const rawScale = depth / 4
+  const magnitude = 10 ** Math.floor(Math.log10(rawScale))
+  const scaleMetres = [1, 2, 5, 10].map(value => value * magnitude).find(value => value >= rawScale)!
+  return { plots, width: Math.max(width, 1), depth, gap, scaleMetres }
+}

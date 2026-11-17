@@ -61,14 +61,14 @@ async function assertLateCloseKeepsReopenedDialog(dialog) {
   }))
   await expect(dialog, 'Ein verspätetes Close-Event darf einen neu geöffneten Dialog nicht schließen').toBeVisible()
 }
-async function assertCommonAreaScale(page) {
-  const squares = await page.locator('.area-stage svg rect').evaluateAll(rects => rects.map(rect => ({
+async function assertCommonAreaScale(page, areas = [1000, 156000 / 29.05, 156000 / 8.9]) {
+  await page.getByRole('button', { name: 'Grundriss', exact: true }).click()
+  const squares = await page.locator('.comparison-plan .comparison-footprint').evaluateAll(rects => rects.map(rect => ({
     width: Number(rect.getAttribute('width')), height: Number(rect.getAttribute('height')),
     pixelWidth: rect.getBoundingClientRect().width, pixelHeight: rect.getBoundingClientRect().height,
   })))
   assert.equal(squares.length, 3)
-  // These areas are independently reconstructed from the annual 156,000 kg target.
-  const areas = [1000, 156000 / 29.05, 156000 / 8.9]
+  // Areas are independently reconstructed from the chosen reference yields.
   const scale = squares[0].width ** 2 / areas[0]
   const pixelScale = squares[0].pixelWidth ** 2 / areas[0]
   squares.forEach((square, index) => {
@@ -149,6 +149,25 @@ await check('Kompakter Einstieg und Hintergrundthemen zeigen Details erst auf An
   await nav(page, 'Erkunden')
 })
 
+await check('Szenarien zeigen ausschließlich Vertical Farming; Erkunden behält seine Modellauswahl', async () => {
+  for (const [label, system] of [['Gewächshaus', 'greenhouse'], ['Freiland', 'field']]) {
+    await nav(page, 'Erkunden')
+    await page.locator('.system-switch').getByRole('button', { name: new RegExp(label) }).click()
+    await expect(page.getByTestId('scene')).toHaveAttribute('data-system', system)
+    await nav(page, 'Szenarien')
+    await expect(page.locator('.system-switch')).toHaveCount(0)
+    await expect(page.locator('.scenario-model-label')).toContainText('Vertical Farm')
+    await expect(page.getByTestId('scene')).toHaveAttribute('data-system', 'vertical')
+    await page.getByTestId('preset').selectOption('levels')
+    await expect(page.getByTestId('scene')).toHaveAttribute('data-levels', '6')
+    await expect(page.getByTestId('harvest')).toContainText('234')
+    await nav(page, 'Erkunden')
+    await expect(page.getByTestId('scene')).toHaveAttribute('data-system', system)
+  }
+  await nav(page, 'Szenarien')
+  await page.getByRole('button', { name: 'Basis vollständig wiederherstellen' }).click()
+})
+
 await check('Strompreis ändert Kosten, weder Ernte noch Energie', async () => {
   await nav(page, 'Szenarien')
   const before = { harvest: await page.getByTestId('harvest').innerText(), energy: await page.getByTestId('energy').innerText() }
@@ -215,6 +234,7 @@ await check('Parameterhilfen sind erreichbar und Sensitivität trennt Energie, E
 
 await check('Vergleich: gleiche Fläche und gleiche Ernte, echte Datenlücken', async () => {
   await nav(page, 'Vergleichen')
+  await assertCommonAreaScale(page, [1000, 1000, 1000])
   const areaRow = page.locator('.comparison-table tbody tr').filter({ hasText: 'Grundfläche · m²' })
   assert.deepEqual(await areaRow.locator('td').allTextContents(), ['1.000', '1.000', '1.000'])
   const energyRow = page.locator('.comparison-table tbody tr').filter({ hasText: 'Energie · kWh/a' })
@@ -225,6 +245,31 @@ await check('Vergleich: gleiche Fläche und gleiche Ernte, echte Datenlücken', 
   assert.deepEqual(await areaRow.locator('td').allTextContents(), ['1.000', '5.370', '17.528'])
   await assertCommonAreaScale(page)
   await screenshot(page, 'desktop-vergleichen')
+})
+
+await check('Maßstäbliche 3D-Modelle und Grundrisse reagieren auf aktuelle Szenarien und Ansichtswechsel', async () => {
+  await page.getByRole('button', { name: '3D-Modelle', exact: true }).click()
+  const canvas = page.locator('.comparison-stage canvas')
+  await expect(canvas).toBeVisible()
+  assert.ok(await canvas.evaluate(element => Boolean(element.getContext('webgl2') || element.getContext('webgl'))))
+  await expect(page.locator('.comparison-model-label')).toHaveCount(4)
+  await expect(page.locator('.comparison-values')).toContainText('17.528 m²')
+  await screenshot(page, 'vergleich-3d-basis')
+  await nav(page, 'Szenarien')
+  await page.getByTestId('preset').selectOption('levels')
+  await nav(page, 'Vergleichen')
+  await page.getByRole('button', { name: 'Gleiche Jahresernte', exact: true }).click()
+  await assertCommonAreaScale(page, [1000, 234000 / 29.05, 234000 / 8.9])
+  await expect(page.locator('.comparison-values')).toContainText('234')
+  for (let i = 0; i < 3; i++) {
+    await page.getByRole('button', { name: '3D-Modelle', exact: true }).click()
+    await expect(canvas).toBeVisible()
+    await page.getByRole('button', { name: 'Grundriss', exact: true }).click()
+    await expect(page.locator('.comparison-plan')).toBeVisible()
+  }
+  await nav(page, 'Szenarien')
+  await page.getByRole('button', { name: 'Basis vollständig wiederherstellen' }).click()
+  await nav(page, 'Vergleichen')
 })
 
 await check('Quellendialog: Original-URLs, Fundstellen und Escape-Taste', async () => {

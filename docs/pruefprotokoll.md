@@ -9,9 +9,9 @@ Stand: 17.11.2026. Geprüft wurde die lokale Produktionsversion unter `http://12
 | Aufgaben-PDF | Alle neun Seiten vollständig visuell gelesen und zusätzlich deutsch OCR-erkannt; kritische Zahlen, Symbole und Abgabevorgaben am Seitenbild kontrolliert |
 | Anforderungen | Matrix vor Beginn des App-Codes erstellt; anschließend unabhängige fachliche Gegenprüfung. Ergänzt wurden insbesondere Zielkonfliktketten, Förderoptionenvergleich und sichtbare Sensitivität |
 | Quellen | Pflichtquellen geöffnet; Reviews und relevante Vergleichsstudien als Originalvolltexte mit Abbildungen/Anhängen gelesen. Genaue Fundstellen und Zugangsgrenzen in den beiden Recherchedateien |
-| Rechen- und Quellenprüfung | `npm test`: **26 Tests in sechs Gruppen bestanden**, darunter sechs Regressionstests für Quellenwechsel und Druckreferenzen |
+| Rechen- und Quellenprüfung | `npm test`: **30 Tests in sieben Gruppen bestanden**, darunter sechs Regressionstests für Quellenwechsel und Druckreferenzen sowie vier Prüfungen des gemeinsamen Flächenmaßstabs |
 | Produktionsbuild | `npm run build`: TypeScript und Vite erfolgreich; lokale Ressourcen und Lizenztexte in `dist` enthalten |
-| Produktionsbrowser | `node tests/browser.mjs http://127.0.0.1:4173`: **18 von 18 Prüfgruppen bestanden** |
+| Produktionsbrowser | `node tests/browser.mjs http://127.0.0.1:4173`: **20 von 20 Prüfgruppen bestanden** |
 | Browserfehler | Keine aufgezeichneten JavaScript- oder `console.error`-Fehler in den geprüften Wegen |
 | Betrieb ohne Internet | Frische Browserkontexte mit allen externen Netzwerkzielen aktiv blockiert; lokaler Server erlaubt. **Keine externen Laufzeitabrufe**, alle Kernwege einschließlich echter WebGL-Szene und Export funktionierten |
 | Druck-PDF | `output/pdf/decision-brief-basis.pdf`: **eine A4-Seite**, 403 Wörter, drei Empfehlungssätze; dynamische Quellenliste, gerendert und visuell geprüft |
@@ -80,6 +80,8 @@ Die PDF enthält die bearbeitbare **Beispielposition B im Basisszenario**, keine
 - Sieben Ausgabeansichten wurden aus der Produktion erneuert und visuell geprüft: Laptopansicht, drei Anbausysteme, Basisvergleich, Sensitivität und Galerieaufnahme. Dateiliste in `docs/design-ueberarbeitung.md`.
 
 ## Verbleibende Grenzen
+
+Die jüngste Ergänzung verbindet den ausschließlich für VF geltenden Rechner mit einer dazu passenden Modellansicht. Der Vergleich besitzt gemeinsame 3D-Grundflächen und maßstäbliche Grundrisse. Die neuen Prüfungen sind in `docs/szenarien-und-vergleich.md` beschrieben; die historischen Abnahmen oben beziehen sich auf ihre jeweiligen Zwischenstände.
 
 - Kein Test auf physischem iPad, echtem iPhone, Safari, Beamer oder Drucker. Touch und Bildschirmgrößen wurden emuliert; eine kurze Probe am tatsächlichen Präsentationsgerät bleibt erforderlich.
 - Kein vollständiges WCAG-/Screenreader-Audit und keine garantierte Bildrate auf unbekannter Hardware. Geprüft wurden die genannten Bedienwege, reduzierte Bewegung und relevante Layouts.

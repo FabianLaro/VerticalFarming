@@ -67,7 +67,8 @@ export default function App() {
   const base = calculate(BASE_INPUT)
   const selectedPart = parts[part]
   const showScene = tab === 'Erkunden' || tab === 'Szenarien'
-  const sceneProps = { system, levels: input.levels, footprint: input.footprint, view, cameraView: camera, resetKey, quality, cameraCommand: command, onSelect: (id: string) => { if (id in parts) setPart(id as Part) } }
+  const sceneSystem = tab === 'Szenarien' ? 'vertical' : system
+  const sceneProps = { system: sceneSystem, levels: input.levels, footprint: input.footprint, view, cameraView: camera, resetKey, quality, cameraCommand: command, onSelect: (id: string) => { if (id in parts) setPart(id as Part) } }
   const reset = () => { setInput({ ...BASE_INPUT }); setPreset('base'); setSystem('vertical'); setView('cutaway'); setCamera('perspective'); setResetKey(k => k + 1); setNotice('Basisszenario und Standardansicht wiederhergestellt.') }
   const update = (key: keyof Input, value: number) => { setInput(current => ({ ...current, [key]: value })); setPreset('custom') }
   const go = (next: number) => { const n = Math.max(0, Math.min(tour.length - 1, next)); setStep(n); setTab(tour[n].tab); if (n === 1) { setSystem('vertical'); setView('cutaway'); setPart('water') } window.scrollTo({ top: 0, behavior: 'instant' }) }
@@ -97,13 +98,13 @@ export default function App() {
 
       {showScene && <section className="explore-grid no-print" aria-label={tab === 'Erkunden' ? 'Anbausysteme erkunden' : 'Szenariomodell verändern'}>
         <div className="visual-column">
-          <div className="system-switch" aria-label="Anbausystem">{systems.map(item => <button key={item.id} aria-pressed={system === item.id} onClick={() => setSystem(item.id)}><span>{item.label}</span><small>{item.note}</small></button>)}</div>
-          <div className="scene-shell" data-testid="scene" data-system={system} data-levels={input.levels} data-footprint={input.footprint}>
-            <div className="scene-heading"><span>{systems.find(s => s.id === system)?.label}</span><span className="scene-live">{fallback ? 'Ersatzschema' : 'Interaktives Modell'}</span></div>
+          {tab === 'Erkunden' ? <div className="system-switch" aria-label="Anbausystem">{systems.map(item => <button key={item.id} aria-pressed={system === item.id} onClick={() => setSystem(item.id)}><span>{item.label}</span><small>{item.note}</small></button>)}</div> : <div className="scenario-model-label"><strong>Vertical Farm</strong><span>Szenariomodell</span></div>}
+          <div className="scene-shell" data-testid="scene" data-system={sceneSystem} data-levels={input.levels} data-footprint={input.footprint}>
+            <div className="scene-heading"><span>{systems.find(s => s.id === sceneSystem)?.label}</span><span className="scene-live">{fallback ? 'Ersatzschema' : 'Interaktives Modell'}</span></div>
             <div className="scene-canvas">
               {fallback ? <SceneFallback {...sceneProps} /> : <SceneBoundary key={`${quality}-${resetKey}`} fallback={<SceneFallback {...sceneProps} />}><Suspense fallback={<div className="scene-loading">Das räumliche Modell wird aufgebaut …</div>}><FarmScene {...sceneProps} /></Suspense></SceneBoundary>}
             </div>
-            <div className="scene-scale">Schematische Geometrie · Ansichten jeweils eingepasst<span>{number(input.footprint)} m² Grundfläche{system === 'vertical' ? ` · ${input.levels} Anbauebenen` : ' · eine Anbauebene'}</span></div>
+            <div className="scene-scale">Schematische Geometrie · Ansichten jeweils eingepasst<span>{number(input.footprint)} m² Grundfläche{sceneSystem === 'vertical' ? ` · ${input.levels} Anbauebenen` : ' · eine Anbauebene'}</span></div>
             <div className="scene-controls"><div className="segmented" aria-label="Gebäudeansicht">{([['cutaway', 'Schnitt'], ['closed', 'Hülle'], ['exploded', 'Aufbau']] as const).map(([id, label]) => <button key={id} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}</div><div className="camera-tools"><button title="Nach links drehen" aria-label="Nach links drehen" onClick={() => setCommand(c => ({ action: 'left', seq: (c?.seq ?? 0) + 1 }))}><ArrowLeft /></button><button title="Nach rechts drehen" aria-label="Nach rechts drehen" onClick={() => setCommand(c => ({ action: 'right', seq: (c?.seq ?? 0) + 1 }))}><ArrowRight /></button><button title="Vergrößern" aria-label="Vergrößern" onClick={() => setCommand(c => ({ action: 'in', seq: (c?.seq ?? 0) + 1 }))}><Plus /></button><button title="Verkleinern" aria-label="Verkleinern" onClick={() => setCommand(c => ({ action: 'out', seq: (c?.seq ?? 0) + 1 }))}><Minus /></button><button title="Kamera zurücksetzen" aria-label="Kamera zurücksetzen" onClick={() => { setCamera('perspective'); setResetKey(k => k + 1) }}><ArrowsOut /></button></div></div>
           </div>
           <div className="scene-options"><span>Ziehen zum Drehen · Scrollen / zwei Finger zum Zoomen</span><div><label className="select-compact">Kamera <select value={camera} onChange={e => setCamera(e.target.value as typeof camera)}><option value="perspective">Räumlich</option><option value="top">Von oben</option><option value="front">Von vorn</option></select></label><label className="select-compact">Grafik <select value={fallback ? 'fallback' : quality} onChange={e => { setFallback(e.target.value === 'fallback'); if (e.target.value !== 'fallback') setQuality(e.target.value as typeof quality) }}><option value="high">Detail</option><option value="low">Sparsam</option><option value="fallback">Ersatzschema</option></select></label></div></div>
@@ -113,7 +114,7 @@ export default function App() {
 
 
         <aside className="inspector">
-          {tab === 'Szenarien' ? <ScenarioPanel input={input} result={result} preset={preset} update={update} selectPreset={id => { setInput(applyPreset(id)); setPreset(id); setSystem('vertical') }} reset={reset} onSource={setSource} /> : <>
+          {tab === 'Szenarien' ? <ScenarioPanel input={input} result={result} preset={preset} update={update} selectPreset={id => { setInput(applyPreset(id)); setPreset(id) }} reset={reset} onSource={setSource} /> : <>
             <div className="inspector-heading">Bauteile</div>
             <div className="part-buttons" aria-label="Bauteil auswählen">{(Object.keys(parts) as Part[]).map((id, i) => <button key={id} aria-label={parts[id].title} aria-pressed={part === id} onClick={() => setPart(id)}><span>{i + 1}</span>{partLabels[id]}</button>)}</div>
             <div className="part-copy"><h2>{selectedPart.title}</h2><p>{selectedPart.text}</p><details className="boundary-note"><summary>Einordnung</summary><p>{selectedPart.limit}</p></details><button className="source-link" onClick={() => setSource(selectedPart.source)}><BookOpen size={15} />Beleg und Grenzen <ArrowRight size={14} /></button></div>

@@ -57,6 +57,8 @@ summary { cursor: pointer; }
 .system-switch button span { display: block; font-size: 14px; font-weight: 600; }
 .system-switch button small { display: none; margin-top: 3px; font-size: 11px; }
 .system-switch button[aria-pressed=true] { color: var(--ink); background: #fff; box-shadow: 0 1px 3px #2433260a; }
+.scenario-model-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 6px 12px; margin-bottom: 8px; background: #e9ede6; border-radius: 5px; font-size: 13px; }
+.scenario-model-label span { color: var(--muted); font-size: 12px; }
 .scene-shell { position: relative; border-radius: 5px; background: #e8ebe4; overflow: hidden; }
 .scene-heading { position: absolute; z-index: 2; pointer-events: none; top: 17px; left: 20px; right: 20px; display: flex; justify-content: space-between; gap: 15px; font-size: 13px; font-weight: 600; }
 .scene-live { color: #5d6b59; font-size: 11px; font-weight: 450; }
