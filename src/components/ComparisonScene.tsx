@@ -1,6 +1,6 @@
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { ComparisonRow, Input } from '../lib/model'
@@ -10,11 +10,12 @@ import { number } from '../lib/format'
 
 type Vec3 = [number, number, number]
 type SceneLabel = { text: string; x: number; y: number }
+type GroundSize = { system: string; width: number; depth: number }
 const modelPath = `${import.meta.env.BASE_URL}models/lettuce-low.glb`
 const groundColors = ['#b7c5ad', '#cdd5bd', '#8c7959']
 
-function Block({ at, size, color = '#b8c2b9', opacity = 1 }: { at: Vec3; size: Vec3; color?: string; opacity?: number }) {
-  return <mesh position={at}><boxGeometry args={size} /><meshStandardMaterial color={color} roughness={.85} transparent={opacity < 1} opacity={opacity} depthWrite={opacity === 1} /></mesh>
+function Block({ at, size, color = '#b8c2b9', opacity = 1, name }: { at: Vec3; size: Vec3; color?: string; opacity?: number; name?: string }) {
+  return <mesh name={name} position={at}><boxGeometry args={size} /><meshStandardMaterial color={color} roughness={.85} transparent={opacity < 1} opacity={opacity} depthWrite={opacity === 1} /></mesh>
 }
 
 /** These placements are illustrative plants, not a count of annual production. */
@@ -55,6 +56,8 @@ function Farm({ plot, input, index }: { plot: ComparisonPlot; input: Input; inde
   const greenhouse = row.system === 'greenhouse'
   const levels = vertical ? input.levels : 1
   const buildingHeight = vertical ? levels * 1.7 + 1.2 : 6
+  const invalidate = useThree(state => state.invalidate)
+  useLayoutEffect(() => invalidate(), [side, levels, invalidate])
   const cropPositions = useMemo(() => {
     const positions: Vec3[] = []
     if (vertical) {
@@ -70,7 +73,7 @@ function Farm({ plot, input, index }: { plot: ComparisonPlot; input: Input; inde
   if (side <= 0) return null
   const edge = Math.min(.2, side / 100)
   return <group position={[x, 0, z]}>
-    <Block at={[0, -.12, 0]} size={[side, .24, side]} color={groundColors[index]} />
+    <Block name={`comparison-ground-${row.system}`} at={[0, -.12, 0]} size={[side, .24, side]} color={groundColors[index]} />
     {vertical ? <>
       <Block at={[0, buildingHeight / 2, -side / 2]} size={[side, buildingHeight, edge]} color="#e4e6df" />
       <Block at={[-side / 2, buildingHeight / 2, 0]} size={[edge, buildingHeight, side]} color="#d6dcd2" />
@@ -101,8 +104,20 @@ function Farm({ plot, input, index }: { plot: ComparisonPlot; input: Input; inde
   </group>
 }
 
-function SharedCamera({ width, depth, height, plots, scaleMetres, onLabels }: { width: number; depth: number; height: number; plots: ComparisonPlot[]; scaleMetres: number; onLabels: (labels: SceneLabel[]) => void }) {
+function SharedCamera({ width, depth, height, plots, scaleMetres, onLabels, onGeometry }: { width: number; depth: number; height: number; plots: ComparisonPlot[]; scaleMetres: number; onLabels: (labels: SceneLabel[]) => void; onGeometry: (sizes: GroundSize[]) => void }) {
   const { camera, size, invalidate } = useThree()
+  const reported = useRef('')
+  useFrame(({ scene }) => {
+    const grounds = plots.map(plot => scene.getObjectByName(`comparison-ground-${plot.row.system}`))
+    if (grounds.some(ground => !ground)) return
+    scene.updateMatrixWorld(true)
+    const sizes = grounds.map((ground, index) => {
+      const size = new THREE.Box3().setFromObject(ground!).getSize(new THREE.Vector3())
+      return { system: plots[index].row.system, width: size.x, depth: size.z }
+    })
+    const signature = JSON.stringify(sizes)
+    if (signature !== reported.current) { reported.current = signature; onGeometry(sizes) }
+  })
   useLayoutEffect(() => {
     if (!(camera instanceof THREE.OrthographicCamera)) return
     const center = new THREE.Vector3(0, height / 2, -depth / 2)
@@ -133,16 +148,20 @@ function SharedCamera({ width, depth, height, plots, scaleMetres, onLabels }: { 
 }
 
 export default function ComparisonScene({ rows, input, fallback }: { rows: ComparisonRow[]; input: Input; fallback: ReactNode }) {
+  // Keep the metric plan visible while the one shared Blender asset is loading.
+  useGLTF(modelPath, false, false)
   const layout = useMemo(() => comparisonLayout(rows), [rows])
   const [labels, setLabels] = useState<SceneLabel[]>([])
-  return <div className="comparison-scene"><Canvas className="comparison-canvas" orthographic frameloop="demand" dpr={[1, 1.5]} camera={{ position: [0, 100, 150], near: .1, far: 10000 }} gl={{ antialias: true, alpha: true }} fallback={fallback} aria-label="Drei Anbausysteme mit Grundflächen im selben Maßstab">
+  const [groundSizes, setGroundSizes] = useState<GroundSize[]>([])
+  const ready = groundSizes.length === rows.length
+  return <div className="comparison-scene" data-ready={ready} data-world-footprints={JSON.stringify(groundSizes)}><Canvas className="comparison-canvas" style={{ opacity: ready ? 1 : 0 }} orthographic frameloop="demand" dpr={[1, 1.5]} camera={{ position: [0, 100, 150], near: .1, far: 10000 }} gl={{ antialias: true, alpha: true }} fallback={fallback} aria-label="Drei Anbausysteme mit Grundflächen im selben Maßstab">
     <ambientLight intensity={.65} />
     <hemisphereLight args={['#f4f7ed', '#8a8475', .7]} />
     <directionalLight position={[-40, 90, 55]} intensity={1.8} />
-    <SharedCamera width={layout.width} depth={layout.depth} height={Math.max(input.levels * 1.7 + 1.2, 10)} plots={layout.plots} scaleMetres={layout.scaleMetres} onLabels={setLabels} />
-    <Suspense fallback={null}>{layout.plots.map((plot, index) => <Farm key={plot.row.system} plot={plot} input={input} index={index} />)}</Suspense>
+    <SharedCamera width={layout.width} depth={layout.depth} height={Math.max(input.levels * 1.7 + 1.2, 10)} plots={layout.plots} scaleMetres={layout.scaleMetres} onLabels={setLabels} onGeometry={setGroundSizes} />
+    {layout.plots.map((plot, index) => <Farm key={plot.row.system} plot={plot} input={input} index={index} />)}
     <group position={[-layout.width / 2, 0, 7]}>
       <Block at={[layout.scaleMetres / 2, 0, 0]} size={[layout.scaleMetres, .12, .15]} color="#3f5544" />
     </group>
-  </Canvas><div className="comparison-scene-labels" aria-hidden="true">{labels.map((label, index) => <span key={index} className="comparison-model-label" style={{ left: label.x, top: label.y }}>{label.text}</span>)}</div></div>
+  </Canvas>{ready ? <div className="comparison-scene-labels" aria-hidden="true">{labels.map((label, index) => <span key={index} className="comparison-model-label" style={{ left: label.x, top: label.y }}>{label.text}</span>)}</div> : <div className="comparison-scene-loading">{fallback}</div>}</div>
 }

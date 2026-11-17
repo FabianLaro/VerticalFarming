@@ -94,9 +94,9 @@
     "/models/pump.glb": 200,
     "/models/air-handler.glb": 200,
     "/models/harvest-cart.glb": 200,
+    "/models/lettuce-low.glb": 200,
     "/renders/greenhouse.png": 200,
     "/renders/field.png": 200,
-    "/models/lettuce-low.glb": 200,
     "/renders/lettuce-detail.png": 200
   },
   "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 (0x00002786) Direct3D11 vs_5_0 ps_5_0, D3D11)",

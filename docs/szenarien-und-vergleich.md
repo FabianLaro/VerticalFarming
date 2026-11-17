@@ -21,7 +21,7 @@ Die fachlichen Referenzen, Jahresangaben und fehlenden harmonisierten Energie-/K
 
 ## Prüfungen
 
-30 Tests in sieben Gruppen einschließlich vier Prüfungen für gemeinsame Flächen, unabhängig nachgerechnete Referenzflächen, sechs Ebenen und Randfälle. 20 Produktions-Browserprüfgruppen decken zusätzlich den Wechsel aus Gewächshaus/Freiland in den VF-Rechner, erhaltene Erkundungsauswahl, echte WebGL-Grafik, wiederholte Ansichtswechsel sowie das tatsächliche SVG-/Bildschirmflächenverhältnis auf Desktop, Tablet und Smartphone ab. Bericht: `docs/browser-checks.json`.
+30 Tests in sieben Gruppen einschließlich vier Prüfungen für gemeinsame Flächen, unabhängig nachgerechnete Referenzflächen, sechs Ebenen und Randfälle. 20 Produktions-Browserprüfgruppen decken zusätzlich den Wechsel aus Gewächshaus/Freiland in den VF-Rechner, erhaltene Erkundungsauswahl, echte WebGL-Grafik, wiederholte Ansichtswechsel sowie das tatsächliche SVG-/Bildschirmflächenverhältnis auf Desktop, Tablet und Smartphone ab. Zusätzlich werden die tatsächlich geladenen 3D-Grundflächen aus den Meshabmessungen unabhängig mit den Referenzflächen verglichen. Während des Modellaufbaus bleibt der Grundriss sichtbar. Bericht: `docs/browser-checks.json`.
 
 TypeScript und Produktionsbuild bestanden. Der Brief bleibt bei 403 Wörtern und passt auf eine A4-Seite. Keine Prüfung auf physischem iPhone/Safari; keine Nutzerstudie.
 

@@ -251,7 +251,11 @@ await check('Maßstäbliche 3D-Modelle und Grundrisse reagieren auf aktuelle Sze
   await page.getByRole('button', { name: '3D-Modelle', exact: true }).click()
   const canvas = page.locator('.comparison-stage canvas')
   await expect(canvas).toBeVisible()
+  await expect(page.locator('.comparison-scene')).toHaveAttribute('data-ready', 'true')
   assert.ok(await canvas.evaluate(element => Boolean(element.getContext('webgl2') || element.getContext('webgl'))))
+  const groundSizes = JSON.parse(await page.locator('.comparison-scene').getAttribute('data-world-footprints'))
+  const expectedAreas = [1000, 156000 / 29.05, 156000 / 8.9]
+  groundSizes.forEach((ground, index) => assert.ok(Math.abs(ground.width * ground.depth - expectedAreas[index]) < expectedAreas[index] * 1e-6, 'Tatsächliche 3D-Meshflächen entsprechen denselben Referenzflächen'))
   await expect(page.locator('.comparison-model-label')).toHaveCount(4)
   await expect(page.locator('.comparison-values')).toContainText('17.528 m²')
   await screenshot(page, 'vergleich-3d-basis')
@@ -264,6 +268,7 @@ await check('Maßstäbliche 3D-Modelle und Grundrisse reagieren auf aktuelle Sze
   for (let i = 0; i < 3; i++) {
     await page.getByRole('button', { name: '3D-Modelle', exact: true }).click()
     await expect(canvas).toBeVisible()
+    await expect(page.locator('.comparison-scene')).toHaveAttribute('data-ready', 'true')
     await page.getByRole('button', { name: 'Grundriss', exact: true }).click()
     await expect(page.locator('.comparison-plan')).toBeVisible()
   }

@@ -6,6 +6,7 @@
 .comparison-plan { display: block; width: 100%; height: 100%; padding: 14px; }
 .comparison-scene { position: relative; }
 .comparison-scene-labels { position: absolute; inset: 0; pointer-events: none; }
+.comparison-scene-loading { position: absolute; inset: 0; }
 .comparison-model-label { position: absolute; transform: translate(-50%, 0); font-size: 11px; white-space: nowrap; color: #344735; padding: 2px 5px; background: #f7f9f1e8; border-radius: 2px; }
 .comparison-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .comparison-values > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-variant-numeric: tabular-nums; }
