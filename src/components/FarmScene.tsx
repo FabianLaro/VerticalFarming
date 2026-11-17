@@ -96,7 +96,7 @@ function packedModel(scene: THREE.Group): THREE.Group {
 }
 
 /** The GLBs are authored in this project's Blender sources, with embedded materials. */
-function Model({ name, position, rotation, scale = 1 }: { name: string; position: Vec3; rotation?: Vec3; scale?: number }) {
+export function Model({ name, position, rotation, scale = 1 }: { name: string; position: Vec3; rotation?: Vec3; scale?: number | Vec3 }) {
   const { scene } = useGLTF(modelPath(name), false, false)
   const object = useMemo(() => packedModel(scene).clone(true), [scene])
   // Cached GLB geometry/materials are deliberately shared across repeated components.
@@ -312,7 +312,7 @@ function SiteSurface() {
   </group>
 }
 
-function StudioLighting() {
+export function StudioLighting() {
   const { gl, scene, invalidate } = useThree()
   useEffect(() => {
     const room = new RoomEnvironment()

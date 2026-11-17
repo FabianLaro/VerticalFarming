@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { BASE_INPUT, calculate, compare } from '../src/lib/model'
-import { comparisonLayout } from '../src/lib/comparison-layout'
+import { comparisonLayout, comparisonScale } from '../src/lib/comparison-layout'
 
 describe('Gemeinsamer Flächenmaßstab der Vergleichsgrafik', () => {
-  it('zeigt bei gleicher Grundfläche drei gleich große Grundrisse', () => {
+  it('zeigt bei gleicher Grundfläche drei gleich große Parzellen', () => {
     const { plots } = comparisonLayout(compare(BASE_INPUT, 'footprint', 1000))
     plots.forEach(plot => assert.ok(Math.abs(plot.side ** 2 - 1000) < 1e-8))
     assert.equal(new Set(plots.map(plot => plot.side)).size, 1)
@@ -34,5 +34,22 @@ describe('Gemeinsamer Flächenmaßstab der Vergleichsgrafik', () => {
       assert.ok(layout.width > 0 && layout.depth > 0 && layout.scaleMetres > 0)
       layout.plots.forEach(plot => [plot.x, plot.z, plot.side].forEach(value => assert.ok(Number.isFinite(value))))
     }
+  })
+})
+
+describe('Kalibrierter Maßstabsbalken', () => {
+  it('bildet 10 Meter bei 8 Pixeln pro Meter als 80 Pixel ab', () => {
+    assert.deepEqual(comparisonScale(8, 100), { metres: 10, pixels: 80 })
+  })
+  it('bleibt bei kleinen und großen Ansichten rund und innerhalb der verfügbaren Breite', () => {
+    for (const projection of [.2, .8, 2.7, 6.1, 17, 40]) {
+      const result = comparisonScale(projection, 80)
+      assert.equal(result.pixels, result.metres * projection)
+      assert.ok(result.pixels > 30 && result.pixels <= 80)
+    }
+  })
+  it('weist ungültige Projektions- und Breitenwerte zurück', () => {
+    for (const value of [0, -1, NaN, Infinity]) assert.throws(() => comparisonScale(value, 100), RangeError)
+    assert.throws(() => comparisonScale(2, 0), RangeError)
   })
 })

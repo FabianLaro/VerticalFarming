@@ -20,9 +20,18 @@ export function comparisonLayout(rows: ComparisonRow[]) {
     left += side + gap
     return plot
   })
-  // A useful round distance, with the same meaning in the plan and 3D scene.
+  // A useful round distance in the shared scene units.
   const rawScale = depth / 4
   const magnitude = 10 ** Math.floor(Math.log10(rawScale))
   const scaleMetres = [1, 2, 5, 10].map(value => value * magnitude).find(value => value >= rawScale)!
   return { plots, width: Math.max(width, 1), depth, gap, scaleMetres }
+}
+
+/** A round 1/2/5 distance calibrated to the actual projected ground edge. */
+export function comparisonScale(pixelsPerMetre: number, maxPixels: number) {
+  if (!(pixelsPerMetre > 0) || !(maxPixels > 0) || !Number.isFinite(pixelsPerMetre + maxPixels)) throw new RangeError('Ungültiger Maßstab.')
+  const idealMetres = maxPixels / pixelsPerMetre
+  const magnitude = 10 ** Math.floor(Math.log10(idealMetres))
+  const metres = [1, 2, 5, 10].map(value => value * magnitude).filter(value => value <= idealMetres).at(-1)!
+  return { metres, pixels: metres * pixelsPerMetre }
 }

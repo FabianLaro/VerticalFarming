@@ -62,21 +62,29 @@ async function assertLateCloseKeepsReopenedDialog(dialog) {
   await expect(dialog, 'Ein verspätetes Close-Event darf einen neu geöffneten Dialog nicht schließen').toBeVisible()
 }
 async function assertCommonAreaScale(page, areas = [1000, 156000 / 29.05, 156000 / 8.9]) {
-  await page.getByRole('button', { name: 'Grundriss', exact: true }).click()
-  const squares = await page.locator('.comparison-plan .comparison-footprint').evaluateAll(rects => rects.map(rect => ({
-    width: Number(rect.getAttribute('width')), height: Number(rect.getAttribute('height')),
-    pixelWidth: rect.getBoundingClientRect().width, pixelHeight: rect.getBoundingClientRect().height,
-  })))
-  assert.equal(squares.length, 3)
-  // Areas are independently reconstructed from the chosen reference yields.
-  const scale = squares[0].width ** 2 / areas[0]
-  const pixelScale = squares[0].pixelWidth ** 2 / areas[0]
-  squares.forEach((square, index) => {
-    assert.ok(Math.abs(square.width - square.height) < 1e-8, 'SVG-Rechtecke müssen Quadrate bleiben')
-    assert.ok(Math.abs(square.pixelWidth - square.pixelHeight) < 0.1, 'Angezeigte Flächen dürfen nicht verzerrt werden')
-    assert.ok(Math.abs(square.width ** 2 / areas[index] - scale) < 1e-8, 'Alle SVG-Flächen brauchen denselben Maßstab')
-    assert.ok(Math.abs(square.pixelWidth ** 2 / areas[index] - pixelScale) < 0.001, 'Auch nach responsiver Skalierung gilt ein gemeinsamer Maßstab')
+  const scene = page.locator('.comparison-scene')
+  await expect(scene).toHaveAttribute('data-ready', 'true')
+  await expect.poll(async () => {
+    const grounds = JSON.parse(await scene.getAttribute('data-world-footprints'))
+    return grounds.length === 3 && grounds.every((ground, i) => Math.abs(ground.width * ground.depth - areas[i]) < areas[i] * 1e-6)
+  }).toBe(true)
+  const grounds = JSON.parse(await scene.getAttribute('data-world-footprints'))
+  const projection = grounds[0].pixelWidth / grounds[0].width
+  grounds.forEach(ground => {
+    assert.ok(Math.abs(ground.width - ground.depth) < 1e-6, 'Alle Parzellen bleiben quadratisch')
+    assert.ok(Math.abs(ground.pixelWidth / ground.width - projection) < 1e-5, 'Alle Modelle teilen denselben projizierten Metermaßstab')
   })
+  const ruler = page.locator('.comparison-scale')
+  const metres = Number(await ruler.getAttribute('data-metres'))
+  const pixels = Number(await ruler.getAttribute('data-pixels'))
+  assert.ok(Math.abs(pixels / metres - projection) < 1e-5, 'Maßstabsbalken entspricht der tatsächlichen Kameraprojektion')
+  await expect.poll(() => ruler.evaluate(element => Math.abs(element.querySelector('path').getBoundingClientRect().width - Number(element.dataset.pixels))), { message: 'Sichtbare Linienlänge entspricht nach dem Kamera-Update den kalibrierten Pixeln' }).toBeLessThan(.1)
+  const stageBox = await page.locator('.comparison-stage').boundingBox()
+  const rulerBox = await ruler.boundingBox()
+  assert.ok(Math.abs(stageBox.x + stageBox.width - rulerBox.x - rulerBox.width - 10) < 1, 'Maßstab steht rechts in der Ecke')
+  assert.ok(Math.abs(stageBox.y + stageBox.height - rulerBox.y - rulerBox.height - 10) < 1, 'Maßstab steht unten in der Ecke')
+  await expect(page.getByRole('button', { name: 'Grundriss', exact: true })).toHaveCount(0)
+  await expect(page.locator('.comparison-plan')).toHaveCount(0)
 }
 const ctx = await context()
 const page = await ctx.newPage()
@@ -247,8 +255,7 @@ await check('Vergleich: gleiche Fläche und gleiche Ernte, echte Datenlücken', 
   await screenshot(page, 'desktop-vergleichen')
 })
 
-await check('Maßstäbliche 3D-Modelle und Grundrisse reagieren auf aktuelle Szenarien und Ansichtswechsel', async () => {
-  await page.getByRole('button', { name: '3D-Modelle', exact: true }).click()
+await check('Detaillierte 3D-Modelle und der Maßstab rechts unten folgen aktuellen Szenarien', async () => {
   const canvas = page.locator('.comparison-stage canvas')
   await expect(canvas).toBeVisible()
   await expect(page.locator('.comparison-scene')).toHaveAttribute('data-ready', 'true')
@@ -256,7 +263,7 @@ await check('Maßstäbliche 3D-Modelle und Grundrisse reagieren auf aktuelle Sze
   const groundSizes = JSON.parse(await page.locator('.comparison-scene').getAttribute('data-world-footprints'))
   const expectedAreas = [1000, 156000 / 29.05, 156000 / 8.9]
   groundSizes.forEach((ground, index) => assert.ok(Math.abs(ground.width * ground.depth - expectedAreas[index]) < expectedAreas[index] * 1e-6, 'Tatsächliche 3D-Meshflächen entsprechen denselben Referenzflächen'))
-  await expect(page.locator('.comparison-model-label')).toHaveCount(4)
+  await expect(page.locator('.comparison-model-label')).toHaveCount(3)
   await expect(page.locator('.comparison-values')).toContainText('17.528 m²')
   await screenshot(page, 'vergleich-3d-basis')
   await nav(page, 'Szenarien')
@@ -265,12 +272,11 @@ await check('Maßstäbliche 3D-Modelle und Grundrisse reagieren auf aktuelle Sze
   await page.getByRole('button', { name: 'Gleiche Jahresernte', exact: true }).click()
   await assertCommonAreaScale(page, [1000, 234000 / 29.05, 234000 / 8.9])
   await expect(page.locator('.comparison-values')).toContainText('234')
-  for (let i = 0; i < 3; i++) {
-    await page.getByRole('button', { name: '3D-Modelle', exact: true }).click()
-    await expect(canvas).toBeVisible()
-    await expect(page.locator('.comparison-scene')).toHaveAttribute('data-ready', 'true')
-    await page.getByRole('button', { name: 'Grundriss', exact: true }).click()
-    await expect(page.locator('.comparison-plan')).toBeVisible()
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole('button', { name: 'Gleiche Grundfläche', exact: true }).click()
+    await assertCommonAreaScale(page, [1000, 1000, 1000])
+    await page.getByRole('button', { name: 'Gleiche Jahresernte', exact: true }).click()
+    await assertCommonAreaScale(page, [1000, 234000 / 29.05, 234000 / 8.9])
   }
   await nav(page, 'Szenarien')
   await page.getByRole('button', { name: 'Basis vollständig wiederherstellen' }).click()

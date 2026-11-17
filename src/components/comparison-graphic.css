@@ -1,12 +1,15 @@
 .comparison-graphic { margin: 0; }
-.comparison-graphic-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.comparison-graphic-toolbar { display: flex; align-items: center; }
 .comparison-graphic-toolbar > span { color: var(--muted); font-size: 12px; }
-.comparison-stage { height: 300px; position: relative; background: #f2f4ee; border-radius: 3px; overflow: hidden; margin: 10px 0 14px; }
+.comparison-stage { height: 340px; position: relative; background: #f0f2ec; border-radius: 3px; overflow: hidden; margin: 10px 0 14px; }
 .comparison-stage > div, .comparison-canvas { height: 100%; }
-.comparison-plan { display: block; width: 100%; height: 100%; padding: 14px; }
+.comparison-placeholder { display: grid; place-items: center; height: 100%; padding: 24px; color: var(--muted); font-size: 13px; text-align: center; }
 .comparison-scene { position: relative; }
 .comparison-scene-labels { position: absolute; inset: 0; pointer-events: none; }
 .comparison-scene-loading { position: absolute; inset: 0; }
+.comparison-scale { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; align-items: center; padding: 4px 6px; color: #344735; background: #f8faf3e8; border-radius: 2px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.comparison-scale svg { display: block; }
+.comparison-scale span { font-size: 11px; line-height: 1.3; }
 .comparison-model-label { position: absolute; transform: translate(-50%, 0); font-size: 11px; white-space: nowrap; color: #344735; padding: 2px 5px; background: #f7f9f1e8; border-radius: 2px; }
 .comparison-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .comparison-values > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-variant-numeric: tabular-nums; }
@@ -19,7 +22,7 @@
 .harvest-track > div { height: 100%; }
 .comparison-geometry-note { font-size: 11px; line-height: 1.6; margin-top: 12px; }
 @media (max-width: 650px) {
-  .comparison-stage { height: 245px; }
+  .comparison-stage { height: 275px; }
   .comparison-values { gap: 9px; }
   .comparison-values strong { font-size: 11px; gap: 4px; }
   .comparison-values strong i { width: 6px; height: 6px; }
@@ -27,5 +30,4 @@
   .comparison-values b { font-size: 21px; line-height: 1.35; }
   .comparison-values b small { display: block; font-size: 10px; }
   .comparison-model-label { font-size: 10px; }
-  .comparison-graphic-toolbar .segmented button { font-size: 11px; padding: 6px 9px; }
 }

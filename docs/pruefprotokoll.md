@@ -9,7 +9,7 @@ Stand: 17.11.2026. Geprüft wurde die lokale Produktionsversion unter `http://12
 | Aufgaben-PDF | Alle neun Seiten vollständig visuell gelesen und zusätzlich deutsch OCR-erkannt; kritische Zahlen, Symbole und Abgabevorgaben am Seitenbild kontrolliert |
 | Anforderungen | Matrix vor Beginn des App-Codes erstellt; anschließend unabhängige fachliche Gegenprüfung. Ergänzt wurden insbesondere Zielkonfliktketten, Förderoptionenvergleich und sichtbare Sensitivität |
 | Quellen | Pflichtquellen geöffnet; Reviews und relevante Vergleichsstudien als Originalvolltexte mit Abbildungen/Anhängen gelesen. Genaue Fundstellen und Zugangsgrenzen in den beiden Recherchedateien |
-| Rechen- und Quellenprüfung | `npm test`: **30 Tests in sieben Gruppen bestanden**, darunter sechs Regressionstests für Quellenwechsel und Druckreferenzen sowie vier Prüfungen des gemeinsamen Flächenmaßstabs |
+| Rechen- und Quellenprüfung | `npm test`: **33 Tests in acht Gruppen bestanden**, darunter sechs Regressionstests für Quellenwechsel und Druckreferenzen, vier Prüfungen des gemeinsamen Flächenmaßstabs und drei zum kalibrierten Maßstabsbalken |
 | Produktionsbuild | `npm run build`: TypeScript und Vite erfolgreich; lokale Ressourcen und Lizenztexte in `dist` enthalten |
 | Produktionsbrowser | `node tests/browser.mjs http://127.0.0.1:4173`: **20 von 20 Prüfgruppen bestanden** |
 | Browserfehler | Keine aufgezeichneten JavaScript- oder `console.error`-Fehler in den geprüften Wegen |
