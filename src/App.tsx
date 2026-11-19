@@ -1,7 +1,7 @@
 import { Component, Suspense, lazy, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowsOut, BookOpen, Check, Minus, MonitorPlay, Plus, X } from '@phosphor-icons/react'
-import { BASE_INPUT, PARAMS, applyPreset, calculate } from './lib/model'
+import { BASE_INPUT, PARAMS, applyPreset, calculate, compare, validateInput } from './lib/model'
 import type { Input } from './lib/model'
 import { sources, dataCatalog, RESULT_META } from './data/catalog'
 import { number, percentChange } from './lib/format'
@@ -50,7 +50,7 @@ class SceneBoundary extends Component<{ children: ReactNode; fallback: ReactNode
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('Erkunden')
-  const [input, setInput] = useState<Input>({ ...BASE_INPUT })
+  const [input, setInput] = useState<Input>(() => { try { const saved = JSON.parse(localStorage.getItem('stadtlabor-input-v1') || 'null'); if (saved) { validateInput(saved); if (PARAMS.every(p => saved[p.key] >= p.min && saved[p.key] <= p.max)) return saved } } catch { /* invalid storage */ } return { ...BASE_INPUT } })
   const [preset, setPreset] = useState('base')
   const [system, setSystem] = useState<System>('vertical')
   const [part, setPart] = useState<Part>('plants')
@@ -64,6 +64,7 @@ export default function App() {
   const [step, setStep] = useState<number | null>(null)
   const [notice, setNotice] = useState('')
   const result = calculate(input)
+  useEffect(() => { try { localStorage.setItem('stadtlabor-input-v1', JSON.stringify(input)) } catch { /* storage unavailable */ } }, [input])
   const base = calculate(BASE_INPUT)
   const selectedPart = parts[part]
   const showScene = tab === 'Erkunden' || tab === 'Szenarien'
@@ -93,7 +94,7 @@ export default function App() {
       <div className="header-actions"><button className="text-button" onClick={() => setSource('all')}><BookOpen size={19} /><span>Belege</span></button><button className="button button-dark" onClick={() => step === null ? go(0) : setStep(null)}><MonitorPlay size={18} />{step === null ? 'Vortrag starten' : 'Vortrag beenden'}</button></div>
     </header>
     <main id="main">
-      <div className={tab === 'Erkunden' || tab === 'Szenarien' ? 'page-heading no-print' : 'visually-hidden no-print'}><h1>{tab === 'Erkunden' ? 'Soll unsere Stadt Vertical Farming fördern?' : tab === 'Szenarien' ? 'Szenariorechner' : tab === 'Vergleichen' ? 'Anbau vergleichen' : 'Förderentscheidung'}</h1><span>Szenariomodell</span></div>
+      <div className={tab === 'Erkunden' || tab === 'Szenarien' ? 'page-heading no-print' : 'visually-hidden no-print'}><h1>{tab === 'Erkunden' ? 'Soll Dinslaken Vertical Farming fördern?' : tab === 'Szenarien' ? 'Szenariorechner' : tab === 'Vergleichen' ? 'Anbau vergleichen' : 'Förderentscheidung'}</h1><span>Szenariomodell</span></div>
       {step !== null && <aside className="tour-note no-print" aria-label="Vortragsnotizen"><span>{step + 1} / 6 · {tour[step].time}</span><strong>{tour[step].title}</strong><p>{tour[step].text}</p></aside>}
 
       {showScene && <section className="explore-grid no-print" aria-label={tab === 'Erkunden' ? 'Anbausysteme erkunden' : 'Szenariomodell verändern'}>
@@ -109,12 +110,13 @@ export default function App() {
           </div>
           <div className="scene-options"><span>Ziehen zum Drehen · Scrollen / zwei Finger zum Zoomen</span><div><label className="select-compact">Kamera <select value={camera} onChange={e => setCamera(e.target.value as typeof camera)}><option value="perspective">Räumlich</option><option value="top">Von oben</option><option value="front">Von vorn</option></select></label><label className="select-compact">Grafik <select value={fallback ? 'fallback' : quality} onChange={e => { setFallback(e.target.value === 'fallback'); if (e.target.value !== 'fallback') setQuality(e.target.value as typeof quality) }}><option value="high">Detail</option><option value="low">Sparsam</option><option value="fallback">Ersatzschema</option></select></label></div></div>
         </div>
-      {showScene && <section className="metrics no-print" aria-label="Ergebnisse des Vertical-Farm-Szenarios" aria-live="polite"><div className="metric-intro"><span>VF · ein Jahr</span><p>Eigene Annahmen</p></div><div className="metric"><span>Jährliche Ernte</span><strong data-testid="harvest">{number(result.harvest / 1000, 1)} <small>t</small></strong><small>{percentChange(result.harvest, base.harvest)} zur Basis</small></div><div className="metric"><span>Energiebedarf¹</span><strong data-testid="energy">{number(result.energy / 1000)} <small>MWh</small></strong><small>{number(input.energyPerKg, 1)} kWh je kg</small></div><div className="metric"><span>Frischwasserzusatz²</span><strong>{number(result.water / 1000)} <small>m³</small></strong><small>{number(input.waterPerKg, 1)} Liter je kg</small></div><div className="metric"><span>Stromkosten¹</span><strong data-testid="cost">{number(result.electricityCost / 1000, 1)} <small>Tsd. €</small></strong><small>{number(result.electricityPerKg, 2)} € je kg · Teilkosten</small></div></section>}
-      {showScene && <details className="metric-footnote no-print"><summary>Bilanzgrenzen und Annahmen</summary><p>¹ Gesamtenergie vereinfachend als Strom; enthält Licht, Klima und Pumpen. ² Frischwasserzusatz im Anbau, ohne Reinigung und Vorketten. Keine vollständigen Produktionskosten oder Klimabilanz. Alle Werte: aktuelles Szenario.</p><button className="source-link" onClick={() => setSource('assumptions')}>Annahmen öffnen</button></details>}
+      {showScene && sceneSystem === 'vertical' && <section className="metrics no-print" aria-label="Ergebnisse des Vertical-Farm-Szenarios" aria-live="polite"><div className="metric-intro"><span>VF · ein Jahr</span><p>Eigene Annahmen</p></div><div className="metric"><span>Jährliche Ernte</span><strong data-testid="harvest">{number(result.harvest / 1000, 1)} <small>t</small></strong><small>{percentChange(result.harvest, base.harvest)} zur Basis</small></div><div className="metric"><span>Energiebedarf¹</span><strong data-testid="energy">{number(result.energy / 1000)} <small>MWh</small></strong><small>{number(input.energyPerKg, 1)} kWh je kg</small></div><div className="metric"><span>Frischwasserzusatz²</span><strong>{number(result.water / 1000)} <small>m³</small></strong><small>{number(input.waterPerKg, 1)} Liter je kg</small></div><div className="metric"><span>Stromkosten¹</span><strong data-testid="cost">{number(result.electricityCost / 1000, 1)} <small>Tsd. €</small></strong><small>{number(result.electricityPerKg, 2)} € je kg · Teilkosten</small></div></section>}
+      {showScene && sceneSystem !== 'vertical' && <section className="metrics no-print">{compare(input, 'footprint', input.footprint).filter(row => row.system === sceneSystem).map(row => <div key={row.system}><strong>{row.label} · NL-Referenz (Blom 2022)</strong><p>{number(row.harvest / 1000, 1)} t Ernte jährlich · {number(row.water / 1000)} m³ Bewässerungszufuhr</p><p>{row.boundary} {row.limitations}</p></div>)}</section>}
+      {showScene && sceneSystem === 'vertical' && <details className="metric-footnote no-print"><summary>Bilanzgrenzen und Annahmen</summary><p>¹ Gesamtenergie vereinfachend als Strom; enthält Licht, Klima und Pumpen. ² Frischwasserzusatz im Anbau, ohne Reinigung und Vorketten. Keine vollständigen Produktionskosten oder Klimabilanz. Alle Werte: aktuelles Szenario.</p><button className="source-link" onClick={() => setSource('assumptions')}>Annahmen öffnen</button></details>}
 
 
         <aside className="inspector">
-          {tab === 'Szenarien' ? <ScenarioPanel input={input} result={result} preset={preset} update={update} selectPreset={id => { setInput(applyPreset(id)); setPreset(id) }} reset={reset} onSource={setSource} /> : <>
+          {tab === 'Szenarien' ? <ScenarioPanel input={input} result={result} preset={preset} update={update} selectPreset={id => { setInput(applyPreset(id)); setPreset(id) }} reset={reset} onSource={setSource} /> : system !== 'vertical' ? <><h2>{system === 'greenhouse' ? 'Gewächshaus' : 'Freiland'}</h2><p>{system === 'greenhouse' ? 'Sonnenlicht, Bewässerung, Heizung und Lüftung bestimmen die Produktion. Die Referenz nutzt Erdgasheizung ohne Zusatzlicht.' : 'Boden, Niederschlag, Bewässerung und saisonale Witterung bestimmen die Produktion. Die Referenz umfasst drei Anbauzyklen.'}</p><button className="source-link" onClick={() => setSource('blom2022')}>Referenz und Grenzen</button><p>Grundfläche: {number(input.footprint)} m². Netto-Anbaufläche unbekannt.</p></> : <>
             <div className="inspector-heading">Bauteile</div>
             <div className="part-buttons" aria-label="Bauteil auswählen">{(Object.keys(parts) as Part[]).map((id, i) => <button key={id} aria-label={parts[id].title} aria-pressed={part === id} onClick={() => setPart(id)}><span>{i + 1}</span>{partLabels[id]}</button>)}</div>
             <div className="part-copy"><h2>{selectedPart.title}</h2><p>{selectedPart.text}</p><details className="boundary-note"><summary>Einordnung</summary><p>{selectedPart.limit}</p></details><button className="source-link" onClick={() => setSource(selectedPart.source)}><BookOpen size={15} />Beleg und Grenzen <ArrowRight size={14} /></button></div>
@@ -126,6 +128,7 @@ export default function App() {
 
       {tab === 'Erkunden' && <><details className="render-archive no-print"><summary>Gerenderte Ansichten und Nahaufnahme</summary><RenderGallery system={system} onSystemChange={setSystem} /></details><Knowledge onSource={setSource} onScenario={() => { setTab('Szenarien'); setSystem('vertical') }} /></>}
       {tab === 'Szenarien' && <><details className="scenario-method no-print"><summary>Rechenweg und Modellgrenzen</summary><section className="scenario-explanation"><div><p>Das Jahresmodell hält Ertrag und Energie je Kilogramm konstant, bis du diese Annahmen selbst änderst. Es bildet weder Pflanzenwachstum noch Marktpreise oder Gewinne ab.</p></div><div className="formula-list"><p><span>Anbaufläche</span>Grundfläche × Nutzanteil × Ebenen</p><p><span>Ernte</span>Anbaufläche × Jahresertrag</p><p><span>Energie</span>Ernte × Energiebedarf je kg</p><p><span>Strombeitrag</span>Energie × Emissionsfaktor</p><p className="note">Einheiten: m² · kg/a · kWh/a · kg CO₂eq/a. Geringere Emissionen aus Strom sind keine vollständige Klimaneutralität.</p></div></section></details><details className="sensitivity-section no-print"><summary>Annahmen prüfen (±20 %)</summary><Sensitivity input={input} /></details></>}
+      {tab === 'Szenarien' && <section className="scenario-explanation no-print"><h2>Plausibilitätscheck für Dinslaken</h2><p>Rechnerische Mindest-Gebäudehöhe bei angenommenen 1,7 m je Ebene plus 1,2 m Technik: {number(input.levels * 1.7 + 1.2, 1)} m. Mittlere elektrische Leistung: {number(result.energy / 8760, 1)} kW. Spitzenlast und tatsächlicher Netzanschluss müssen separat geprüft werden.</p><p>Stromkosten-Untergrenze: {number(result.electricityPerKg, 2)} €/kg ohne Personal, Kapital und weitere Betriebskosten.</p><p>Bei illustrativ angenommenen 5 kg Salatbedarf pro Person und Jahr entspricht die Ernte dem Bedarf von {number(result.harvest / 5)} Personen. Keine Aussage zur gesamten Ernährung.</p></section>}
       {tab === 'Vergleichen' && <ComparePanel input={input} onSource={setSource} />}
       {tab === 'Entscheiden' && <><Decision input={input} result={result} onSource={setSource} /><Conflicts onSource={setSource} /></>}
       <div className="page-end no-print"><span>Szenariomodell, keine Betriebsprognose.</span><button className="text-button" onClick={() => setSource('all')}>Quellen und Annahmen <ArrowRight size={16} /></button></div>
