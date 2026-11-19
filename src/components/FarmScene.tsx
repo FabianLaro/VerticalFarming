@@ -12,6 +12,8 @@ export interface FarmSceneProps {
   system: FarmSystem
   levels: number
   footprint: number
+  usable?: number
+  selectedPart?: string
   view: 'cutaway' | 'closed' | 'exploded'
   cameraView: 'perspective' | 'top' | 'front'
   resetKey: number
@@ -211,7 +213,8 @@ function SoilSurface({ position, width, depth }: { position: Vec3; width: number
   return <mesh position={position} geometry={geometry} receiveShadow><meshStandardMaterial vertexColors roughness={0.98} /></mesh>
 }
 
-function VerticalFarm({ levels, view, quality, onSelect }: Pick<FarmSceneProps, 'levels' | 'view' | 'quality' | 'onSelect'>) {
+function VerticalFarm({ levels, view, quality, onSelect, usable = 0.65 }: Pick<FarmSceneProps, 'levels' | 'view' | 'quality' | 'onSelect' | 'usable'>) {
+  const rackPositions = [-4.5, -1.5, 1.5].slice(0, Math.max(1, Math.round(usable / 0.65 * 3)))
   const exploded = view === 'exploded'
   const height = Math.max(3.8, (levels - 1) * (exploded ? 1.17 : 0.85) + 2.1)
   const click = (id: string) => (e: { stopPropagation: () => void }) => { e.stopPropagation(); onSelect(id) }
@@ -235,13 +238,13 @@ function VerticalFarm({ levels, view, quality, onSelect }: Pick<FarmSceneProps, 
       </>}
     </group>
     <group onClick={click('plants')}>
-      {[-4.5, -1.5, 1.5].map(x => <Rack key={x} x={x} levels={levels} exploded={exploded} quality={quality} onLightSelect={() => onSelect('lights')} />)}
+      {rackPositions.map(x => <Rack key={x} x={x} levels={levels} exploded={exploded} quality={quality} onLightSelect={() => onSelect('lights')} />)}
     </group>
     <group onClick={click('water')}>
       <Tank />
       <Pipe points={[[7, 0.6, -1.8], [6.7, 0.6, -3.65], [-5.7, 0.6, -3.65], [-5.7, height - 0.6, -3.65]]} />
       <Pipe points={[[-5.7, 0.39, 3.48], [6.4, 0.39, 3.48], [7.1, 0.39, 0], [8, 0.7, -1.2]]} color={colors.return} />
-      {[-4.5, -1.5, 1.5].map(x => <Pipe key={x} points={[[x, 0.6, -3.65], [x, height - 0.6, -3.65]]} radius={0.03} />)}
+      {rackPositions.map(x => <Pipe key={x} points={[[x, 0.6, -3.65], [x, height - 0.6, -3.65]]} radius={0.03} />)}
     </group>
     <group onClick={click('climate')}><Climate height={height} /></group>
     <group onClick={click('harvest')}><Harvest /></group>
@@ -484,7 +487,7 @@ export function FarmScene(props: FarmSceneProps) {
     <div ref={markerContainer} className="scene-markers">
       {markerLocations(props).map(({ id }) => {
         const part = parts.find(item => item[0] === id)!
-        return <button key={id} className="scene-marker" type="button" aria-label={`${part[1]}: ${part[2]} erklären`} title={part[2]} onClick={() => props.onSelect(id)}>{part[1]}</button>
+        return <button key={id} className="scene-marker" style={props.selectedPart === id ? { outline: "3px solid #527b45", background: "#dbead1" } : undefined} type="button" aria-label={`${part[1]}: ${part[2]} erklären`} title={part[2]} onClick={() => props.onSelect(id)}>{part[1]}</button>
       })}
     </div>
   </div></SceneBoundary>
