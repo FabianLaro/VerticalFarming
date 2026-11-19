@@ -1,5 +1,5 @@
 import type { Input, Result } from '../lib/model'
-import { BASE_INPUT, calculate } from '../lib/model'
+import { compare } from '../lib/model'
 import { criterionEvidence, decisionReferences } from '../lib/citations'
 
 export type Verdict = '+' | '±' | '−' | '?'
@@ -80,15 +80,15 @@ export function recommendationSentences(state: DecisionState): number {
 }
 
 export function briefText(state: DecisionState, input: Input, result: Result): string {
-  const baseline = calculate(BASE_INPUT)
+  const rows = compare(input, 'footprint', input.footprint)
   return [
-    'STADTLABOR 2040 Decision Brief Soll unsere Stadt Vertical Farming fördern?',
+    'STADTLABOR 2040 Decision Brief Soll Dinslaken Vertical Farming fördern?',
     'Szenariomodell · Beispielposition, bearbeitbar', state.names, '·', dateLabel(state.date),
     `${state.option} · ${OPTIONS.find(option => option.id === state.option)?.label}`,
     'Empfehlung und zwei Bedingungen', state.recommendation, ...state.conditions,
     'Drei Argumente dafür', ...state.pros, 'Drei Argumente dagegen', ...state.cons,
-    'Ernte im Szenarienvergleich', 'Salatfrischmasse · t/Jahr · Szenariojahr 2040 · [M]',
-    `Basis ${number(baseline.harvest / 1000)} Aktuell ${number(result.harvest / 1000)}`,
+    'Ernte bei gleicher Grundfläche', 'Salatfrischmasse · t/Jahr · Modell und NL-Referenzen [M,B]',
+    rows.map(row => `${row.label} ${number(row.harvest / 1000)}`).join(' '),
     `Aktuell: ${number(input.footprint, 0)} m² Grundfläche · ${number(input.usable * 100, 0)} % Nutzanteil · ${input.levels} Ebenen · ${number(input.yieldPerArea)} kg/(m²·a).`,
     `Anbaufläche ${number(result.cultivationArea, 0)} m²; Energie ${number(result.energy / 1000)} MWh/Jahr; Frischwasserzusatz im Anbau ${number(result.water / 1000)} m³/Jahr (${number(input.waterPerKg)} L/kg, Annahme), ohne Reinigung/Vorketten.`,
     `Strom: ${number(input.energyPerKg)} kWh/kg · ${number(input.electricityPrice, 2)} €/kWh · ${number(input.gridFactor, 3)} kgCO₂eq/kWh.`,
@@ -118,14 +118,14 @@ export interface BriefProps {
 }
 
 export function Brief({ state, input, result, valid }: BriefProps) {
-  const baseline = calculate(BASE_INPUT)
-  const maxHarvest = Math.max(baseline.harvest, result.harvest, 1)
+  const rows = compare(input, 'footprint', input.footprint)
+  const maxHarvest = Math.max(...rows.map(row => row.harvest), 1)
   return <article className="brief" id="decision-brief" aria-label="Druckbarer Decision Brief">
     <header className="brief-header">
       <div><span className="brief-brand">STADTLABOR 2040</span><span>Decision Brief</span></div>
       <p>{state.names} · {dateLabel(state.date)}</p>
     </header>
-    <h1>Soll unsere Stadt Vertical Farming fördern?</h1>
+    <h1>Soll Dinslaken Vertical Farming fördern?</h1>
     <p className="brief-model-label">Szenariomodell · Beispielposition, bearbeitbar</p>
     {!valid && <p className="brief-invalid">Noch nicht abgabefertig: Wort-, Satz- oder Prioritätenvorgabe prüfen.</p>}
     <section className="brief-recommendation">
@@ -139,9 +139,8 @@ export function Brief({ state, input, result, valid }: BriefProps) {
       <section><h3>Drei Argumente dagegen</h3><ul>{state.cons.map((argument, index) => <li key={index}>{argument}</li>)}</ul></section>
     </div>
     <figure className="brief-chart">
-      <figcaption><strong>Ernte im Szenarienvergleich</strong><span>Salatfrischmasse · t/Jahr · Szenariojahr 2040 · [M]</span></figcaption>
-      <div className="brief-chart-row"><span>Basis</span><div><i style={{ width: `${baseline.harvest / maxHarvest * 100}%` }} /></div><strong>{number(baseline.harvest / 1000)}</strong></div>
-      <div className="brief-chart-row current"><span>Aktuell</span><div><i style={{ width: `${result.harvest / maxHarvest * 100}%` }} /></div><strong>{number(result.harvest / 1000)}</strong></div>
+      <figcaption><strong>Ernte bei gleicher Grundfläche</strong><span>Salatfrischmasse · t/Jahr · Modell und NL-Referenzen [M,B]</span></figcaption>
+      {rows.map(row => <div key={row.system} className="brief-chart-row"><span>{row.label}</span><div><i style={{ width: `${row.harvest / maxHarvest * 100}%` }} /></div><strong>{number(row.harvest / 1000)}</strong></div>)}
       <p>Aktuell: {number(input.footprint, 0)} m² Grundfläche · {number(input.usable * 100, 0)} % Nutzanteil · {input.levels} Ebenen · {number(input.yieldPerArea)} kg/(m²·a).</p>
       <p>Anbaufläche {number(result.cultivationArea, 0)} m²; Energie {number(result.energy / 1000)} MWh/Jahr; Frischwasserzusatz im Anbau {number(result.water / 1000)} m³/Jahr ({number(input.waterPerKg)} L/kg, Annahme), ohne Reinigung/Vorketten.</p>
       <p>Strom: {number(input.energyPerKg)} kWh/kg · {number(input.electricityPrice, 2)} €/kWh · {number(input.gridFactor, 3)} kgCO₂eq/kWh.</p>
