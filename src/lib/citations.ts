@@ -50,7 +50,7 @@ export function sourceReference(sourceId: string): string {
 
 /** Selected criterion sources and citations still used elsewhere form the printed bibliography. */
 export function decisionReferences(state: DecisionState): string {
-  const ids = new Set(['scenario', 'uba2026'])
+  const ids = new Set(['scenario', 'uba2026', 'blom2022'])
   state.criteria.forEach(criterion => { if (criterion.source && getSource(criterion.source)) ids.add(criterion.source) })
   const texts = [state.recommendation, ...state.conditions, ...state.pros, ...state.cons,
     state.priorityReason, state.counterargument, state.response, state.uncertainty,
