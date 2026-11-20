@@ -88,7 +88,7 @@ export default function App() {
   }, [step, stage])
 
   return <div className={step === null ? 'app atlas-app' : 'app atlas-app presenting'}>
-    <a className="skip-link" href="#main">Zum Inhalt</a>
+    <a className="skip-link" href="#main" onClick={event => { event.preventDefault(); document.getElementById('main')?.focus() }}>Zum Inhalt</a>
     <header className="atlas-header no-print">
       <div className="atlas-header-inner">
         <button className="atlas-brand" type="button" onClick={() => { setStep(null); navigate('standort') }} aria-label="Stadtlabor 2040 Startseite">

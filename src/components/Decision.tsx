@@ -146,7 +146,7 @@ export function Decision({ input, result, onSource }: DecisionProps) {
   return <div className="atlas-decision-grid">
     <section ref={editor} className="decision-panel no-print" aria-labelledby="decision-heading" data-print-height={layoutHeight ?? undefined}>
       <h2 id="decision-heading" className="visually-hidden">Förderurteil bearbeiten</h2>
-      <label className="decision-field atlas-goal">Öffentliches Förderziel<input type="text" maxLength={160} value={state.goal} onChange={event => update('goal', event.target.value)} /></label>
+      <label className="decision-field atlas-goal">Öffentliches Förderziel<textarea rows={2} maxLength={160} value={state.goal} onChange={event => update('goal', event.target.value)} /></label>
 
       <fieldset className="decision-options"><legend>Welche Förderung empfiehlst du?</legend>{OPTIONS.map(option => <label key={option.id} className={state.option === option.id ? 'decision-option selected' : 'decision-option'}><input type="radio" name="funding-option" value={option.id} checked={state.option === option.id} onChange={() => { update('option', option.id); setConfirmed(false) }} /><span className="option-letter">{option.id}</span><span><strong>{option.label}</strong><small>{option.description}</small></span></label>)}</fieldset>
 

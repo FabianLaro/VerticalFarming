@@ -42,7 +42,7 @@ export function SiteStudy({ input, result, onSource, onCompare }: StudyProps) {
     <div className="atlas-hero">
       <div className="atlas-hero-copy">
         <p className="atlas-location">Dinslaken <span /> Niederrhein</p>
-        <h1>Soll Dinslaken Vertical Farming fördern?</h1>
+        <h1>Soll Dinslaken <br /><span>Vertical Farming</span> <br />fördern?</h1>
         <p>Was braucht eine Stadtfarm, und wann liefert sie einen Vorteil gegenüber Gewächshaus oder Freiland?</p>
         <button type="button" className="atlas-primary" onClick={onCompare}>Systeme vergleichen <ArrowRight size={19} /></button>
       </div>

@@ -69,10 +69,11 @@
 .atlas-main:focus { outline: none; }
 .atlas-footer { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 30px; padding: 14px 0 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .atlas-hero { display: grid; grid-template-columns: minmax(0, .84fr) minmax(0, 1.16fr); align-items: stretch; border-radius: 15px; background: #192e26; overflow: hidden; box-shadow: var(--shadow); }
-.atlas-hero-copy { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 23px; color: #fffaf0; min-width: 0; padding: clamp(25px, 4.25vw, 64px); }
+.atlas-hero-copy { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 18px; color: #fffaf0; min-width: 0; padding: clamp(24px, 3.45vw, 54px); }
 .atlas-hero-copy .atlas-location { color: #dcf0b6; display: flex; gap: 9px; align-items: center; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 760; }
 .atlas-location span { width: 5px; height: 5px; border-radius: 50%; background: #d5e8ac; }
-.atlas-hero h1 { font-size: clamp(40px, 5.1vw, 72px); max-width: 11ch; text-wrap: initial; }
+.atlas-hero h1 { font-size: clamp(32px, 4.35vw, 68px); text-wrap: initial; }
+.atlas-hero h1 span { white-space: nowrap; }
 .atlas-hero-copy > p:not(.atlas-location) { color: #dae6db; max-width: 34ch; font-size: 15px; line-height: 1.55; }
 .atlas-hero-copy .atlas-primary { background: var(--highlight); color: #162b21; padding-inline: 16px; }
 .atlas-hero-copy .atlas-primary:hover:not(:disabled) { background: #eff8cf; }
@@ -155,6 +156,7 @@
 .atlas-comparison > p, .atlas-chart-source p { font-size: 12px; margin-top: 9px; }
 .atlas-compare-3d { margin-top: 10px; }
 .atlas-compare-3d > summary { padding-block: 8px; }
+.atlas-compare-3d .comparison-stage:has(.atlas-3d-message:not([role="status"])) { height: 84px; }
 .atlas-compare-3d > p { font-size: 12px; }
 .atlas-chart-source { border-top: 1px solid var(--line); }
 .atlas-chart-source button { min-height: 29px; }
@@ -249,7 +251,8 @@
   .atlas-main { padding-top: 20px; }
   .atlas-hero { grid-template-columns: minmax(0, 1fr); }
   .atlas-hero-copy { gap: 15px; padding: 24px; }
-  .atlas-hero h1 { max-width: 14ch; font-size: clamp(38px, 9vw, 58px); }
+  .atlas-hero h1 { max-width: none; font-size: clamp(33px, 8vw, 56px); }
+  .atlas-hero h1 span { white-space: normal; }
   .atlas-model-picture { min-height: 240px; }
   .atlas-site-grid { gap: 5px; }
   .atlas-site { padding: 8px 6px; gap: 3px; min-height: 65px; }
