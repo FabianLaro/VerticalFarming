@@ -6,7 +6,7 @@ import { sources, dataCatalog, RESULT_META } from './data/catalog'
 import { number } from './lib/format'
 import { SiteStudy } from './components/SiteStudy'
 import { ComparePanel } from './components/ComparePanel'
-import Decision from './components/Decision'
+import Decision, { readFundingSession } from './components/Decision'
 import { Conflicts } from './components/Conflicts'
 import './atlas.css'
 
@@ -45,6 +45,7 @@ function readScenario(): Input {
 export default function App() {
   const [stage, setStage] = useState(currentStage)
   const [input, setInput] = useState(readScenario)
+  const [fundingSession, setFundingSession] = useState(readFundingSession)
   const [source, setSource] = useState<string | null>(null)
   const [step, setStep] = useState<number | null>(null)
   const result = calculate(input)
@@ -108,7 +109,7 @@ export default function App() {
       {stage === 'vergleich' && <ComparePanel input={input} result={result} onSource={setSource} onDecide={() => navigate('entscheidung')} update={(key, value) => setInput(previous => ({ ...previous, [key]: value }))} selectPreset={id => setInput(applyPreset(id))} />}
       {stage === 'entscheidung' && <>
         <div className="atlas-page-heading no-print"><h1>Wie soll Dinslaken fördern?</h1><p>Wählt ein öffentliches Ziel und begründet eure Entscheidung anhand von fünf Kriterien.</p></div>
-        <Decision input={input} result={result} onSource={setSource} />
+        <Decision input={input} result={result} onSource={setSource} session={fundingSession} setSession={setFundingSession} />
         <Conflicts onSource={setSource} />
       </>}
       <footer className="atlas-footer no-print"><span>Geographieprojekt · Dinslaken · Szenariohorizont 2040</span><button type="button" className="atlas-text" onClick={() => setSource('all')}>Quellen und Modellgrenzen <ArrowRight size={16} /></button></footer>

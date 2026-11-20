@@ -28,6 +28,10 @@
 .funding-answer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 7px 0 4px; }
 .funding-answer { --answer-color: #46694f; --answer-bg: #ebf1e1; display: flex; align-items: start; gap: 8px; text-align: left; padding: 12px; min-height: 56px; border: 1px solid var(--line); border-radius: 7px; background: #fff; font-size: 13px; font-weight: 750; }
 .funding-answer svg { color: var(--answer-color); }
+.funding-goal-dot { flex: 0 0 16px; height: 16px; margin: 2px; border: 2px solid #667269; border-radius: 50%; background: #fff; }
+.funding-answer[aria-pressed=true] .funding-goal-dot { border-color: #356643; background: #356643; box-shadow: inset 0 0 0 3px #fff; }
+.funding-reset { display: flex; justify-content: flex-end; margin: 12px auto 22px; max-width: 1030px; }
+
 .funding-answer-unknown { --answer-color: #765514; --answer-bg: #f5edcf; }
 .funding-answer-no { --answer-color: #8b4434; --answer-bg: #f4e7de; }
 .funding-answer:hover, .funding-answer[aria-pressed=true] { background: var(--answer-bg); border-color: var(--answer-color); }

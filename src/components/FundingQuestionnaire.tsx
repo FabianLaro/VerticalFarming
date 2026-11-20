@@ -59,7 +59,7 @@ export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, 
       <ClipboardText size={31} weight="duotone" aria-hidden="true" />
       <h2>Fragenkatalog</h2>
       <p>Bewerte das Förderziel und die Gegebenheiten der Stadt. Aus deinen Antworten entsteht ein Decision Brief.</p>
-      <p className="funding-note">Die Zahlen sind Beispiele. Wenn dir eine Angabe fehlt, wähle „Noch offen“ oder „Unklar“.</p>
+      <p className="funding-note">Wenn dir eine Angabe fehlt, wähle „Noch offen“ oder „Unklar“. Antworten werden beim Erstellen des Briefs gespeichert.</p>
       <button type="button" className="funding-manual-link" onClick={onManual}>Brief manuell bearbeiten <ArrowRight size={15} /></button>
     </aside>
     <div className="funding-question">
@@ -68,7 +68,7 @@ export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, 
         <div aria-label="Frage auswählen">{fundingQuestions.map((item, position) => <button type="button" key={item.id} className={answers[item.id] ? 'is-answered' : ''} disabled={firstIncomplete !== -1 && position > firstIncomplete} aria-current={position === index ? 'step' : undefined} aria-label={`Frage ${position + 1}: ${item.topic}`} onClick={() => onGoTo(position)} />)}</div>
       </div>
       <p className="funding-topic">{question.topic}</p>
-      <h2 ref={heading} tabIndex={-1}>{question.statement}</h2>
+      <h2 id="funding-question-title" ref={heading} tabIndex={-1}>{question.statement}</h2>
       <p className="funding-context">{question.context}</p>
       {site && <div className="funding-model-note">
         {question.id === 'building' ? <ModelComparison unit="m²" rows={[
@@ -103,7 +103,7 @@ export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, 
       </div>}
       <div className="funding-answer-grid" data-four-options={question.options.length === 4 || undefined} role="group" aria-label="Antwort auswählen">{question.options.map(option => {
         const Icon = icons[option.id as keyof typeof icons] ?? Circle
-        return <button type="button" className={`funding-answer funding-answer-${option.id}`} key={option.id} aria-pressed={selected === option.id} onClick={() => onAnswer(question.id, option.id)}><Icon size={21} weight="bold" aria-hidden="true" />{option.label}</button>
+        return <button type="button" className={`funding-answer funding-answer-${option.id}`} key={option.id} aria-pressed={selected === option.id} onClick={() => onAnswer(question.id, option.id)}>{question.id === 'goal' ? <span className="funding-goal-dot" aria-hidden="true" /> : <Icon size={21} weight="bold" aria-hidden="true" />}{option.label}</button>
       })}</div>
       {question.id === 'building' && site && site.hall !== null && <p className="funding-limit-feedback" role="status">{site.hallTooSmall
         ? `Die Halle ist ${number(input.footprint - site.hall, 1)} m² zu klein für diese Farm.`

@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PARAMS, calculate } from '../lib/model'
 import type { Input, Result } from '../lib/model'
+import type { Dispatch, SetStateAction } from 'react'
+import { ArrowCounterClockwise } from '@phosphor-icons/react'
 import { Brief, INITIAL_DECISION, OPTIONS, briefText, countWords, recommendationSentences } from './Brief'
 import type { CriterionId, DecisionState, Verdict } from './Brief'
 import { getSource, sources } from '../data/catalog'
@@ -222,23 +224,26 @@ function DecisionEditor({ input, result, onSource, generated }: DecisionProps & 
 
 type Session = { answers: Answers; index: number; complete: boolean; scenario?: Input }
 
-function readSession(): Session {
+function newSession(): Session {
+  return { answers: {}, index: 0, complete: false }
+}
+
+export function readFundingSession(): Session {
   try {
-    const raw = JSON.parse(localStorage.getItem(QUESTIONNAIRE_KEY) ?? '{}')
+    const raw = JSON.parse(localStorage.getItem(QUESTIONNAIRE_KEY) ?? 'null')
+    if (!raw || raw.complete !== true) return newSession()
     const answers = restoreAnswers(raw.answers)
-    const next = fundingQuestions.findIndex(question => !answers[question.id])
-    const complete = raw.complete === true && next === -1
-    const index = Number.isInteger(raw.index) && raw.index >= 0 && raw.index < fundingQuestions.length ? raw.index : Math.max(0, next)
+    if (fundingQuestions.some(question => !answers[question.id])) return newSession()
+    const index = Number.isInteger(raw.index) && raw.index >= 0 && raw.index < fundingQuestions.length ? raw.index : 0
     const scenario = raw.scenario as Input | undefined
     const validScenario = scenario && PARAMS.every(({ key, min, max }) => Number.isFinite(scenario[key]) && scenario[key] >= min && scenario[key] <= max) && Number.isInteger(scenario.levels)
-    return { answers, complete, index: next === -1 ? index : Math.min(index, next), scenario: validScenario ? scenario : undefined }
+    return { answers, complete: true, index, scenario: validScenario ? scenario : undefined }
   } catch {
-    return { answers: {}, index: 0, complete: false }
+    return newSession()
   }
 }
 
-export function Decision(props: DecisionProps) {
-  const [session, setSession] = useState(readSession)
+export function Decision({ session, setSession, ...props }: DecisionProps & { session: Session; setSession: Dispatch<SetStateAction<Session>> }) {
   const [manual, setManual] = useState(false)
   const [latestDraft, setLatestDraft] = useState<DecisionState>()
   const evaluatedInput = session.scenario ?? props.input
@@ -246,9 +251,10 @@ export function Decision(props: DecisionProps) {
   const changedScenario = PARAMS.some(({ key }) => props.input[key] !== evaluatedInput[key])
 
   useEffect(() => {
-    try { localStorage.setItem(QUESTIONNAIRE_KEY, JSON.stringify(session)) }
-    catch { /* The questionnaire remains available in the current view. */ }
-  }, [session])
+    try {
+      if (!readFundingSession().complete) localStorage.removeItem(QUESTIONNAIRE_KEY)
+    } catch { /* The questionnaire can still be used in memory. */ }
+  }, [])
 
   function goTo(index: number) {
     setSession(current => ({ ...current, index, complete: false }))
@@ -258,27 +264,46 @@ export function Decision(props: DecisionProps) {
     setSession(current => ({ ...current, answers: restoreAnswers({ ...current.answers, [id]: value }) }))
   }
 
+  function reset() {
+    try {
+      localStorage.removeItem(QUESTIONNAIRE_KEY)
+      localStorage.removeItem(GENERATED_KEY)
+    } catch { /* The in-memory state can still be reset. */ }
+    setLatestDraft(undefined)
+    setSession(newSession())
+    requestAnimationFrame(() => document.getElementById('funding-question-title')?.focus())
+  }
+
   function generate() {
     const evaluation = evaluateFunding(session.answers, props.input)
     if (!evaluation) return
     const localDate = new Date().toLocaleDateString('sv-SE')
     const existing = initialState(GENERATED_KEY, { ...evaluation.draft, date: localDate }).draft
     const draft = { ...evaluation.draft, names: existing.names, date: existing.date }
-    try { localStorage.setItem(GENERATED_KEY, JSON.stringify({ ...draft, optionReviewed: true })) }
-    catch { /* Pass the draft directly to the editor. */ }
+    const completedSession: Session = { ...session, complete: true, scenario: { ...props.input } }
+    try {
+      localStorage.setItem(GENERATED_KEY, JSON.stringify({ ...draft, optionReviewed: true }))
+      localStorage.setItem(QUESTIONNAIRE_KEY, JSON.stringify(completedSession))
+    } catch { /* The completed result is still available in memory. */ }
     setLatestDraft(draft)
-    setSession(current => ({ ...current, complete: true, scenario: { ...props.input } }))
+    setSession(completedSession)
   }
 
   if (manual) return <>
     <div className="funding-manual-nav no-print"><button type="button" className="atlas-text" onClick={() => setManual(false)}>Zum Fragenkatalog</button></div>
     <DecisionEditor key="manual" {...props} />
   </>
-  if (outcome) return <>
-    <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} onRecalculate={changedScenario ? generate : undefined} />
-    <DecisionEditor key={`questionnaire-${JSON.stringify(evaluatedInput)}`} {...props} input={evaluatedInput} result={calculate(evaluatedInput)} generated={latestDraft ?? outcome.draft} />
+  return <>
+    {outcome ? <>
+      <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} onRecalculate={changedScenario ? generate : undefined} />
+      <DecisionEditor key={`questionnaire-${JSON.stringify(evaluatedInput)}`} {...props} input={evaluatedInput} result={calculate(evaluatedInput)} generated={latestDraft ?? outcome.draft} />
+    </> : <FundingQuestionnaire input={props.input} answers={session.answers} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={generate} onManual={() => setManual(true)} />}
+    <div className="funding-reset no-print">
+      <button type="button" className="atlas-outline" onClick={reset} disabled={Object.keys(session.answers).length === 0}>
+        <ArrowCounterClockwise size={17} /> Fragebogen zurücksetzen
+      </button>
+    </div>
   </>
-  return <FundingQuestionnaire input={props.input} answers={session.answers} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={generate} onManual={() => setManual(true)} />
 }
 
 export default Decision
