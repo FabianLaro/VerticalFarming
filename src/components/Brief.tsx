@@ -157,7 +157,7 @@ export function Brief({ state, input, result, valid, onSource }: BriefProps) {
     <section className="brief-recommendation">
       <h2>{state.option} · {OPTIONS.find(option => option.id === state.option)?.label}</h2>
       <p><strong>Öffentliches Ziel</strong> {state.goal}</p>
-      {state.siteBasis && <p><strong>Eure Standortangaben</strong> {state.siteBasis}</p>}
+      {state.siteBasis && <p><strong>Eure Standortangaben</strong> {cite(state.siteBasis)}</p>}
       {state.scenarioBasis && <p><strong>Modellrechnung</strong> {cite(state.scenarioBasis)}</p>}
       <h3>Empfehlung und zwei Bedingungen</h3>
       <p>{cite(state.recommendation)}</p>

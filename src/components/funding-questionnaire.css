@@ -77,3 +77,10 @@
 @media (min-width: 721px) {
   .funding-answer-grid[data-four-options] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+.funding-model-bars { display: grid; gap: 7px; margin: 4px 0 8px; }
+.funding-model-bars > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(94px, .7fr); gap: 8px; align-items: center; }
+.funding-model-bars dt { font-size: 13px; }
+.funding-model-bars dd { display: grid; gap: 4px; margin: 0; font-size: 13px; }
+.funding-model-bars dd span { display: block; height: 5px; background: #4c7555; border-radius: 3px; }
+.funding-model-bars > div + div dd span { background: #84683d; }

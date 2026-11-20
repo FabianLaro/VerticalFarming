@@ -1,14 +1,25 @@
 import { INITIAL_DECISION } from '../components/Brief'
 import type { Criterion, DecisionState } from '../components/Brief'
-import { amount } from './format'
+import { amount, number } from './format'
 import { applyPreset, BASE_INPUT, calculate } from './model'
 import type { Input } from './model'
 
-const statusOptions = [
-  { id: 'yes', label: 'Trifft zu' },
-  { id: 'unknown', label: 'Unklar' },
-  { id: 'no', label: 'Trifft nicht zu' },
+const hallSizes = { small: 500, medium: 1000, large: 2000 } as const
+const powerSizes = { light: 100, medium: 200, strong: 400 } as const
+const weeklyOrders = { small: 100, medium: 1000, large: 3000 } as const
+const buyers = [
+  { id: 'canteens', label: 'Schulmensen und Kantinen' },
+  { id: 'shops', label: 'Supermärkte und Läden' },
+  { id: 'mixed', label: 'Mehrere Kunden zusammen' },
+  { id: 'unknown', label: 'Noch offen' },
 ] as const
+
+function exampleChoices(values: Record<string, number>, unit: string) {
+  return [
+    ...Object.entries(values).map(([id, value]) => ({ id, label: amount(value, unit) })),
+    { id: 'unknown', label: 'Noch offen' },
+  ]
+}
 
 const goals = {
   supply: {
@@ -54,9 +65,10 @@ const scaleOptions = [
 
 export const fundingQuestions = [
   { id: 'goal', topic: 'Öffentliches Förderziel', statement: 'Was soll die Förderung für die Stadt in erster Linie erreichen?', context: 'Wähle das Ziel, an dem du die drei Förderoptionen messen möchtest.', options: Object.entries(goals).map(([id, goal]) => ({ id, label: goal.label })) },
-  { id: 'building', topic: 'Gebäude und Betreiber', statement: 'Eine geeignete Halle mit verantwortlichem Betreiber ist verfügbar.', context: 'Prüfe unter anderem Höhe, Platz für Technik, Wasseranschluss und Zuständigkeit für den Betrieb.', options: statusOptions },
-  { id: 'power', topic: 'Netzanschluss und Strompreis', statement: 'Der Netzanschluss deckt die Spitzenlast und ein belastbares Stromangebot liegt vor.', context: 'Eine durchschnittliche Leistung im Rechner ersetzt keine Prüfung der Spitzenlast oder des Anschlusses.', options: statusOptions },
-  { id: 'demand', topic: 'Absatz und Zugang', statement: 'Regionale Abnehmer haben Menge und Preis zugesagt, auch außerhalb der Saison.', context: 'Als Nachweis könnten eine Absichtserklärung mit Liefermengen und einem Preisrahmen oder ein Vertrag dienen.', options: statusOptions },
+  { id: 'building', topic: 'Platz für die Farm', statement: 'In welche Halle soll die Farm passen?', context: 'Wähle eine Beispielgröße. Die Grundfläche ist der Platz auf dem Hallenboden, einschließlich Gängen und Technik.', options: exampleChoices(hallSizes, 'm²') },
+  { id: 'power', topic: 'Strom für Licht und Kühlung', statement: 'Wie stark soll der Stromanschluss der Halle sein?', context: 'Wähle einen Anschluss zum Ausprobieren. Kilowatt (kW) geben an, wie viel Leistung der Anschluss gleichzeitig liefern kann.', options: exampleChoices(powerSizes, 'kW') },
+  { id: 'demand', topic: 'Kunden für den Salat', statement: 'Wer könnte den Salat aus der Farm kaufen?', context: 'Wähle eine Kundengruppe für dein Beispiel. Im nächsten Schritt probierst du aus, wie viel Salat sie abnehmen könnte.', options: buyers },
+  { id: 'sales', topic: 'Salat pro Woche', statement: 'Wie viel Salat könnten deine Kunden pro Woche abnehmen?', context: 'Wähle eine Beispielmenge und vergleiche sie mit der durchschnittlichen Ernte pro Woche. Echte Absprachen wären später nötig.', options: exampleChoices(weeklyOrders, 'kg') },
   { id: 'cost', topic: 'Stromkosten je Kilogramm', statement: 'Welche Stromkostengrenze möchtest du für ein Kilogramm Salat testen?', context: 'Die Beträge sind frei wählbare Grenzen für das Planspiel. Wenn schon der Strom darüber liegt, können die Vollkosten die Grenze ebenfalls nicht einhalten.', options: costOptions },
   { id: 'climate', topic: 'CO₂-Beitrag des Stroms', statement: 'Welchen Strommix möchtest du für die Klimaprüfung testen?', context: 'Der Rechner hält den Strombedarf je Kilogramm konstant. Ist der lokale Strommix unbekannt, kannst du beide Szenarien im Brief zeigen.', options: climateOptions },
   { id: 'alternative', topic: 'Gewächshaus und Freiland', statement: 'Könnte die Stadt Blattgemüse grundsätzlich aus einem Gewächshaus oder aus regionalem Freiland beziehen?', context: 'Hier geht es um verfügbare Bezugsquellen. Welche das Förderziel besser erreicht, ergibt erst der Vergleich von Saison, Liefermenge, Kosten und Umweltwirkungen.', options: alternativeOptions },
@@ -64,18 +76,36 @@ export const fundingQuestions = [
 ] as const
 
 export type QuestionId = typeof fundingQuestions[number]['id']
-type SiteCondition = 'building' | 'power' | 'demand'
-type Status = typeof statusOptions[number]['id']
 type Goal = keyof typeof goals
 export type Answers = Partial<{
   goal: Goal
+  building: keyof typeof hallSizes | 'unknown'
+  power: keyof typeof powerSizes | 'unknown'
+  demand: typeof buyers[number]['id']
+  sales: keyof typeof weeklyOrders | 'unknown'
   cost: keyof typeof costLimits | 'open'
   climate: typeof climateOptions[number]['id']
   alternative: typeof alternativeOptions[number]['id']
   scale: typeof scaleOptions[number]['id']
-} & Record<SiteCondition, Status>>
+}>
 
 const lowerGridFactor = applyPreset('power').gridFactor
+
+export function siteChecks(answers: Answers, input: Input) {
+  const { energy, harvest } = calculate(input)
+  const hall = answers.building && answers.building !== 'unknown' ? hallSizes[answers.building] : null
+  const connection = answers.power && answers.power !== 'unknown' ? powerSizes[answers.power] : null
+  const orders = answers.sales && answers.sales !== 'unknown' ? weeklyOrders[answers.sales] : null
+  const averagePower = energy / (365 * 24)
+  const weeklyHarvest = harvest / 52
+  return {
+    hall, connection, orders, averagePower, weeklyHarvest,
+    hallTooSmall: hall !== null && hall < input.footprint,
+    connectionTooWeak: connection !== null && connection < averagePower,
+    unsoldPerWeek: orders === null ? null : Math.max(0, weeklyHarvest - orders),
+    extraDemandPerWeek: orders === null ? null : Math.max(0, orders - weeklyHarvest),
+  }
+}
 
 export function fundingChecks(answers: Answers, input: Input) {
   const { electricityPerKg } = calculate(input)
@@ -92,7 +122,7 @@ export function fundingChecks(answers: Answers, input: Input) {
     ? `Strombeitrag im Referenzmix ${emissions(referenceEmissions)} [U,M]`
     : answers.climate === 'lower'
       ? `Strombeitrag im emissionsärmeren Szenario ${emissions(lowerEmissions)} [M]`
-      : `Strombeitrag ${emissions(referenceEmissions)} im Referenzmix und ${emissions(lowerEmissions)} im emissionsärmeren Szenario [U,M]`
+      : `Strombeitrag ${number(referenceEmissions, 3)} (Referenzmix) und ${emissions(lowerEmissions)} (emissionsärmerer Mix) [U,M]`
   return { electricityPerKg, limit, costExceeded, referenceEmissions, lowerEmissions, lowerGridFactor, costDetail, climateDetail }
 }
 
@@ -128,7 +158,7 @@ const options: Record<DecisionState['option'], Pick<DecisionState, 'recommendati
     response: 'Befristung und vorher beschlossene Abbruchkriterien begrenzen das Risiko [A].',
   },
   C: {
-    recommendation: 'Die Stadt sollte Gewächshaus oder regionalen Freilandanbau vorrangig prüfen und vorerst keine Vertical Farm fördern.',
+    recommendation: 'Die Stadt sollte zuerst Gewächshaus oder regionalen Freilandanbau prüfen und die Vertical Farm vorerst zurückstellen.',
     conditions: [
       'Die Alternativen werden bei gleicher Liefermenge und Saison verglichen.',
       'Eine Förderung setzt nachgewiesene Abnahme und tragfähige Vollkosten der gewählten Alternative voraus.',
@@ -142,54 +172,51 @@ const options: Record<DecisionState['option'], Pick<DecisionState, 'recommendati
 
 type Reason = { field: QuestionId; text: string }
 
-function recommend(answers: Answers, checks: ReturnType<typeof fundingChecks>): { option: DecisionState['option']; explanation: string; reasons: Reason[] } {
-  const requirements = ['building', 'power', 'demand'] as const
-  const failed = requirements.filter(field => answers[field] === 'no')
-  if (checks.costExceeded) return {
+function recommend(answers: Answers, site: ReturnType<typeof siteChecks>, checks: ReturnType<typeof fundingChecks>): { option: DecisionState['option']; explanation: string; reasons: Reason[] } {
+  const blockers: Reason[] = []
+  if (site.hallTooSmall) blockers.push({ field: 'building', text: 'Die Beispielhalle ist zu klein.' })
+  if (site.connectionTooWeak) blockers.push({ field: 'power', text: 'Der Beispielanschluss reicht schon im Durchschnitt nicht aus.' })
+  if (checks.costExceeded) blockers.push({ field: 'cost', text: 'Der Strom allein kostet mehr als im Planspiel angesetzt.' })
+  if (blockers.length) return {
     option: 'C',
-    explanation: 'Im gewählten Szenario überschreiten schon die Stromkosten deine Prüfgrenze. Prüfe alternative Versorgung oder ein Szenario mit geringeren Stromkosten.',
-    reasons: [{ field: 'cost', text: 'Die gewählte Stromkostengrenze wird im Modell überschritten.' }],
+    explanation: 'Das gewählte Farmbeispiel scheitert an mindestens einer Grenze. Prüfe eine kleinere Farm oder andere Bezugsquellen.',
+    reasons: blockers,
   }
-  if (failed.length) return {
-    option: 'C',
-    explanation: 'Mindestens eine Voraussetzung für den Betrieb oder Absatz fehlt laut deinen Angaben.',
-    reasons: failed.map(field => ({ field, text: { building: 'Halle oder Betreiber fehlen.', power: 'Netzanschluss oder Stromangebot reichen nicht.', demand: 'Verbindlicher Absatz fehlt.' }[field] })),
-  }
-  if (answers.goal !== 'learning' && checks.limit !== null && requirements.every(field => answers[field] === 'yes') && answers.scale === 'measured' && answers.alternative === 'unavailable') return {
+
+  const hasBuyer = answers.demand !== undefined && answers.demand !== 'unknown'
+  const hasSalesPlan = hasBuyer && site.orders !== null
+  if (answers.goal !== 'learning' && checks.limit !== null && site.hall !== null && site.connection !== null && hasSalesPlan && site.unsoldPerWeek === 0 && answers.scale === 'measured' && answers.alternative === 'unavailable') return {
     option: 'A',
-    explanation: 'Die Stromkosten bleiben im Planspiel unter der gewählten Grenze oder auf ihr. Die Empfehlung setzt die von dir angegebenen Messdaten und Standortnachweise voraus.',
-    reasons: [{ field: 'scale', text: 'Vergleichbare Messdaten für den Ausbau wurden angegeben.' }, { field: 'alternative', text: 'Regionale Alternativen wurden als derzeit nicht verfügbar eingeschätzt.' }],
+    explanation: 'Die Beispielwerte sprechen für eine nähere Prüfung. Ein Ausbau setzt die angegebenen Messdaten und Nachweise für den konkreten Standort voraus.',
+    reasons: [{ field: 'scale', text: 'Messdaten für einen Ausbau wurden angegeben.' }, { field: 'alternative', text: 'Andere Bezugsquellen wurden als nicht verfügbar eingeschätzt.' }],
   }
-  if (requirements.some(field => answers[field] === 'yes')) {
-    const siteChecks: Reason[] = [
-      { field: 'building', text: 'Halle und Betreiber noch nachweisen.' },
-      { field: 'power', text: 'Netzanschluss und Stromangebot noch nachweisen.' },
-      { field: 'demand', text: 'Abnahmezusagen noch nachweisen.' },
-    ]
-    const open = siteChecks.filter(({ field }) => answers[field] !== 'yes')
-    const evaluation: Reason = { field: 'scale', text: 'Vollkosten und Umweltwirkungen vor einer Förderung prüfen.' }
+  if (site.hall !== null || site.connection !== null || hasSalesPlan) {
+    const open: Reason[] = []
+    if (site.hall === null) open.push({ field: 'building', text: 'Hallengröße offen.' })
+    if (site.connection === null) open.push({ field: 'power', text: 'Stromanschluss offen.' })
+    if (!hasSalesPlan) open.push({ field: 'sales', text: 'Verabredete Abnahmemenge offen.' })
+    else if (site.unsoldPerWeek) open.push({ field: 'sales', text: 'Für einen Teil der Ernte fehlen mögliche Kunden.' })
     return {
       option: 'B',
-      explanation: 'Ein erster Ansatz ist erkennbar. Ein befristeter Pilot kann noch offene Angaben zu Vollkosten, Lieferfähigkeit und Klima klären.',
-      reasons: [...open, evaluation].slice(0, 3),
+      explanation: 'Ein befristetes Testprojekt kann zeigen, ob sich eine passende Halle, ausreichend Strom und genug Kunden finden lassen.',
+      reasons: open.length ? open : [{ field: 'scale', text: 'Vollkosten und Klimawirkung vor Ort prüfen.' }],
     }
   }
   return {
     option: 'C',
-    explanation: 'Für Gebäude, Stromversorgung und Absatz fehlen belastbare Angaben. Prüfe die Alternativen und erhebe zuerst Standortdaten.',
-    reasons: requirements.map(field => ({ field, text: { building: 'Halle und Betreiber offen.', power: 'Netzanschluss und Stromangebot offen.', demand: 'Abnahmezusagen offen.' }[field] })),
+    explanation: 'Für Halle, Stromanschluss und Abnahme fehlt eine konkrete Annahme. Prüfe zuerst Standorte und andere Bezugsquellen.',
+    reasons: [{ field: 'building', text: 'Halle, Stromanschluss und Abnahmemenge sind offen.' }],
   }
 }
 
-function criteriaFor(answers: Answers, checks: ReturnType<typeof fundingChecks>): Criterion[] {
-  const { demand, building, power } = answers
-  const verdict = (status: Status | undefined) => status === 'yes' ? '+' : status === 'no' ? '−' : '?'
+function criteriaFor(answers: Answers, site: ReturnType<typeof siteChecks>, checks: ReturnType<typeof fundingChecks>): Criterion[] {
+  const buyersNamed = answers.demand !== 'unknown'
   return [
-    { id: 'food', label: 'Ernährungsbeitrag', symbol: verdict(demand), evidence: 'Blattgemüse ergänzt das Angebot. Liefermengen vor Ort prüfen', source: 'dlr2019' },
+    { id: 'food', label: 'Ernährungsbeitrag', symbol: buyersNamed && site.orders !== null ? '±' : '?', evidence: 'Blattgemüse ergänzt das Angebot. Liefermengen vor Ort prüfen', source: 'dlr2019' },
     { id: 'environment', label: 'Umwelt', symbol: '?', evidence: 'Strom und Saison prägen die Bilanz. Vollständiger Vergleich offen', source: 'stanghellini2024' },
     { id: 'economy', label: 'Wirtschaftlichkeit', symbol: checks.costExceeded ? '−' : checks.limit === null ? '?' : '±', evidence: 'Stromkosten lassen sich modellieren. Vollkosten vor Ort prüfen', source: 'scenario' },
-    { id: 'society', label: 'Gesellschaft', symbol: demand === 'yes' ? '±' : '?', evidence: 'Zugang für Kundschaft und Wirkungen auf Betriebe prüfen', source: 'material' },
-    { id: 'feasibility', label: 'Umsetzbarkeit', symbol: building === 'no' || power === 'no' ? '−' : building === 'yes' && power === 'yes' ? '+' : '?', evidence: 'Gebäudeintegration hängt von passender Infrastruktur ab', source: 'fraunhofer' },
+    { id: 'society', label: 'Gesellschaft', symbol: buyersNamed ? '±' : '?', evidence: 'Zugang für Kundschaft und Wirkungen auf Betriebe prüfen', source: 'material' },
+    { id: 'feasibility', label: 'Umsetzbarkeit', symbol: site.hallTooSmall || site.connectionTooWeak ? '−' : site.hall !== null && site.connection !== null ? '±' : '?', evidence: 'Gebäude und maximalen Strombedarf am echten Standort prüfen', source: 'scenario' },
   ]
 }
 
@@ -197,16 +224,26 @@ export function evaluateFunding(answers: Answers, input: Input) {
   if (fundingQuestions.some(question => answers[question.id] === undefined)) return null
   const goal = goals[answers.goal!]
   const checks = fundingChecks(answers, input)
-  const judgement = recommend(answers, checks)
+  const site = siteChecks(answers, input)
+  const judgement = recommend(answers, site, checks)
   const unknown = fundingQuestions.filter(question => answers[question.id] === 'unknown' || question.id === 'alternative' && answers.alternative === 'open')
   const gaps = unknown.map(question => question.topic)
-  const siteBasis = judgement.reasons.map(reason => reason.text).join(' ')
+  const localDetails = [
+    site.hall === null ? '' : `Halle ${amount(site.hall, 'm²')}${site.hallTooSmall ? ' (zu klein)' : ''}`,
+    site.connection === null ? '' : `Anschluss ${amount(site.connection, 'kW')} (Ø Bedarf ${number(site.averagePower, 1)})`,
+    site.orders === null ? '' : `Mögliche Abnahme ${number(site.orders)} bei Ø ${amount(site.weeklyHarvest, 'kg/Woche')}`,
+  ].filter(Boolean)
+  const leadingReason = judgement.reasons[0]
+  const siteBasis = [
+    localDetails.length ? localDetails.join(' · ') + ' [M].' : '',
+    !localDetails.length || leadingReason?.field === 'power' && site.connection === null || leadingReason?.field === 'sales' && site.orders === null ? leadingReason?.text : '',
+  ].filter(Boolean).join(' ')
   const draft: DecisionState = {
     ...structuredClone(INITIAL_DECISION), ...structuredClone(options[judgement.option]),
     option: judgement.option, goal: goal.brief, priorities: [...goal.priorities], priorityReason: goal.reason,
-    criteria: criteriaFor(answers, checks), siteBasis,
+    criteria: criteriaFor(answers, site, checks), siteBasis,
     scenarioBasis: `${checks.costDetail} [M]. ${checks.climateDetail}.`,
-    uncertainty: 'Vollkosten und eine vergleichbare Ökobilanz am Standort prüfen' + (gaps.length ? '. Weitere offene Angaben siehe Fragenkatalog.' : '.'),
+    uncertainty: 'Vollkosten, Ökobilanz und die Beispielangaben vor Ort prüfen.',
   }
   return { ...judgement, draft, gaps, checks }
 }

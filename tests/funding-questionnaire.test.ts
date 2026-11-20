@@ -3,26 +3,43 @@ import { describe, it } from 'node:test'
 import { briefText, countWords, recommendationSentences } from '../src/components/Brief'
 import { BASE_INPUT, calculate } from '../src/lib/model'
 import { decisionReferences, hasCitation } from '../src/lib/citations'
-import { evaluateFunding, fundingChecks, restoreAnswers } from '../src/lib/funding-questionnaire'
+import { evaluateFunding, fundingChecks, restoreAnswers, siteChecks } from '../src/lib/funding-questionnaire'
 import type { Answers } from '../src/lib/funding-questionnaire'
 
 const allVerified: Answers = {
-  goal: 'supply', building: 'yes', power: 'yes', demand: 'yes',
+  goal: 'supply', building: 'medium', power: 'medium', demand: 'canteens', sales: 'large',
   cost: 'three', climate: 'both', alternative: 'unavailable', scale: 'measured',
 }
 const allUnknown: Answers = {
-  goal: 'supply', building: 'unknown', power: 'unknown', demand: 'unknown',
+  goal: 'supply', building: 'unknown', power: 'unknown', demand: 'unknown', sales: 'unknown',
   cost: 'open', climate: 'both', alternative: 'open', scale: 'unknown',
 }
 
 describe('Standortfragebogen für die Förderentscheidung', () => {
   it('fragt alte Antworten auf geänderte Fragen erneut ab', () => {
-    const restored = restoreAnswers({ ...allVerified, cost: 'yes', climate: 'no', unsupported: 'yes' })
+    const restored = restoreAnswers({ ...allVerified, building: 'yes', power: 'yes', demand: 'no', cost: 'yes', climate: 'no', unsupported: 'yes' })
     assert.equal(restored.cost, undefined)
     assert.equal(restored.climate, undefined)
-    assert.equal(restored.building, 'yes')
+    assert.equal(restored.building, undefined)
+    assert.equal(restored.power, undefined)
+    assert.equal(restored.demand, undefined)
     assert.equal(Object.hasOwn(restored, 'unsupported'), false)
     assert.equal(evaluateFunding(restored, BASE_INPUT), null)
+  })
+
+  it('vergleicht Beispielhalle, Stromanschluss und Wochenabnahme mit dem Farmmodell', () => {
+    const fitting = siteChecks(allVerified, BASE_INPUT)
+    assert.equal(fitting.hallTooSmall, false)
+    assert.equal(fitting.connectionTooWeak, false)
+    assert.equal(fitting.weeklyHarvest, 3000)
+    assert.equal(fitting.unsoldPerWeek, 0)
+    assert.ok(Math.abs(fitting.averagePower - 178.0822) < 0.001)
+    const smaller = siteChecks({ ...allVerified, building: 'small', power: 'light', sales: 'medium' }, BASE_INPUT)
+    assert.equal(smaller.hallTooSmall, true)
+    assert.equal(smaller.connectionTooWeak, true)
+    assert.equal(smaller.unsoldPerWeek, 2000)
+    assert.equal(siteChecks(allVerified, { ...BASE_INPUT, footprint: 500 }).extraDemandPerWeek, 1500)
+    assert.equal(siteChecks(allUnknown, BASE_INPUT).unsoldPerWeek, null)
   })
 
   it('berechnet Stromteilkosten und vergleicht die gewählte Grenze mit dem aktuellen Szenario', () => {
@@ -56,27 +73,27 @@ describe('Standortfragebogen für die Förderentscheidung', () => {
   })
 
   it('empfiehlt bei Ansatz und offenen Nachweisen einen Pilot, über der Grenze dagegen eine Alternative', () => {
-    const answers = { ...allUnknown, building: 'yes' } satisfies Answers
+    const answers = { ...allUnknown, building: 'medium' } satisfies Answers
     const pilot = evaluateFunding(answers, BASE_INPUT)!
     assert.equal(pilot.option, 'B')
-    assert.match(pilot.draft.siteBasis!, /Netzanschluss und Stromangebot noch nachweisen/u)
+    assert.match(pilot.draft.siteBasis!, /Stromanschluss offen/u)
     assert.equal(evaluateFunding({ ...answers, cost: 'two' }, BASE_INPUT)?.option, 'C')
     assert.equal(evaluateFunding({ ...answers, cost: 'two' }, { ...BASE_INPUT, electricityPrice: 0.2 })?.option, 'B')
-    for (const field of ['building', 'power', 'demand'] as const) {
-      assert.equal(evaluateFunding({ ...allVerified, [field]: 'no' }, BASE_INPUT)?.option, 'C')
-    }
+    assert.equal(evaluateFunding({ ...allVerified, building: 'small' }, BASE_INPUT)?.option, 'C')
+    assert.equal(evaluateFunding({ ...allVerified, power: 'light' }, BASE_INPUT)?.option, 'C')
+    assert.equal(evaluateFunding({ ...allVerified, sales: 'medium' }, BASE_INPUT)?.option, 'B')
   })
 
   it('weist fehlende Vollkosten und Ökobilanz in jedem belegten Brief unter dem Wortlimit aus', () => {
     const result = calculate(BASE_INPUT)
-    for (const answers of [allVerified, { ...allUnknown, power: 'yes' }, allUnknown, { ...allVerified, cost: 'two' }] satisfies Answers[]) {
+    for (const answers of [allVerified, { ...allUnknown, power: 'medium' }, allUnknown, { ...allVerified, cost: 'two' }] satisfies Answers[]) {
       const { draft } = evaluateFunding(answers, BASE_INPUT)!
       assert.equal(draft.priorities.length, 2)
       assert.equal(draft.criteria.length, 5)
       assert.equal(draft.pros.length + draft.cons.length, 6)
       assert.ok([...draft.pros, ...draft.cons].every(hasCitation))
       assert.equal(recommendationSentences(draft), 3)
-      assert.match(draft.uncertainty, /Vollkosten und eine vergleichbare Ökobilanz/u)
+      assert.match(draft.uncertainty, /Vollkosten, Ökobilanz und die Beispielangaben/u)
       const words = countWords(briefText(draft, BASE_INPUT, result))
       assert.ok(words <= 450, `Option ${draft.option}: ${words} Wörter`)
     }
