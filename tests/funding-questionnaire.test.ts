@@ -67,9 +67,27 @@ describe('Standortfragebogen für die Förderentscheidung', () => {
 
   it('prüft breiten Ausbau erst mit Standortangaben und Messdaten', () => {
     assert.equal(evaluateFunding(allVerified, BASE_INPUT)?.option, 'A')
-    assert.equal(evaluateFunding({ ...allVerified, scale: 'unknown' }, BASE_INPUT)?.option, 'B')
+    const openTest = evaluateFunding({ ...allVerified, scale: 'unknown' }, BASE_INPUT)!
+    assert.equal(openTest.option, 'B')
+    assert.deepEqual(openTest.expansionGaps.map(gap => gap.field), ['scale'])
+    assert.equal(evaluateFunding({ ...allVerified, scale: 'failed' }, BASE_INPUT)?.option, 'C')
     assert.equal(evaluateFunding({ ...allVerified, goal: 'learning' }, BASE_INPUT)?.option, 'B')
     assert.equal(evaluateFunding({ ...allVerified, alternative: 'available' }, BASE_INPUT)?.option, 'B')
+  })
+
+  it('erreicht A auch mit eigener Abnahme und stärkerem Anschluss für eine größere Farm', () => {
+    const input = { ...BASE_INPUT, footprint: 2000, levels: 6, electricityPrice: 0.2, gridFactor: 0.125 }
+    const answers = restoreAnswers({ ...allVerified, building: 2100, power: 'high', sales: 9000, cost: 2.25, climate: 'custom' })
+    assert.deepEqual(restoreAnswers({ building: 0, power: -1, sales: 0, cost: 0, goal: 1, scale: 'missing' }), { sales: 0, cost: 0, scale: 'unknown' })
+    const site = siteChecks(answers, input)
+    assert.equal(site.weeklyHarvest, 9000)
+    assert.equal(site.connection, 1200)
+    assert.ok(site.averagePower > 400 && site.averagePower < 1200)
+    const result = evaluateFunding(answers, input)!
+    assert.equal(result.option, 'A')
+    assert.match(result.draft.scenarioBasis!, /2,25 €\/kg eingehalten.*1,25 kg CO₂eq\/kg.*\[M\]/u)
+    assert.equal(evaluateFunding({ ...answers, power: 'strong' }, input)?.option, 'C')
+    assert.equal(evaluateFunding({ ...answers, power: 750 }, input)?.option, 'A')
   })
 
   it('empfiehlt bei Ansatz und offenen Nachweisen einen Pilot, über der Grenze dagegen eine Alternative', () => {

@@ -75,11 +75,18 @@
 .funding-model-note { padding: 9px 13px; border: 1px solid #d7dfcb; border-radius: 6px; background: #f0f3e9; }
 .funding-model-note p { font-size: 13px; line-height: 1.5; }
 .funding-model-note p + p { margin-top: 3px; }
-.funding-model-note a { display: inline-block; font-size: 12px; margin-top: 4px; }
+.funding-scenario-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); column-gap: 17px; }
+.funding-scenario-controls .atlas-slider { margin: 0; }
+.funding-custom-value { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; font-size: 13px; font-weight: 750; }
+.funding-custom-value input { width: 150px; min-height: 38px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; font: inherit; font-weight: 600; }
+.funding-custom-value input:invalid { border-color: #8b4434; }
 .funding-limit-feedback { font-size: 13px; font-weight: 680; }
 .funding-summary > .funding-model-note { margin-top: 9px; }
+.funding-expansion-gaps { margin-top: 9px; }
+.funding-expansion-gaps ul { padding-inline-start: 20px; margin: 3px 0 10px; }
+.funding-expansion-gaps .atlas-text { text-align: left; font-size: 13px; }
 @media (min-width: 721px) {
-  .funding-answer-grid[data-four-options] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .funding-answer-grid[data-many-options] { grid-template-columns: repeat(auto-fit, minmax(109px, 1fr)); }
 }
 
 .funding-model-bars { display: grid; gap: 7px; margin: 4px 0 8px; }

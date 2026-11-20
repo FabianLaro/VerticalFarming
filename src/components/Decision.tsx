@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PARAMS, calculate } from '../lib/model'
-import type { Input, Result } from '../lib/model'
+import type { Input, InputKey, Result } from '../lib/model'
 import type { Dispatch, SetStateAction } from 'react'
 import { ArrowCounterClockwise } from '@phosphor-icons/react'
 import { Brief, INITIAL_DECISION, OPTIONS, briefText, countWords, recommendationSentences } from './Brief'
@@ -222,7 +222,7 @@ function DecisionEditor({ input, result, onSource, generated }: DecisionProps & 
   </div>
 }
 
-type Session = { answers: Answers; index: number; complete: boolean; scenario?: Input }
+type Session = { answers: Answers; index: number; complete: boolean; scenario?: Input; changes?: Partial<Input> }
 
 function newSession(): Session {
   return { answers: {}, index: 0, complete: false }
@@ -233,7 +233,7 @@ export function readFundingSession(): Session {
     const raw = JSON.parse(localStorage.getItem(QUESTIONNAIRE_KEY) ?? 'null')
     if (!raw || raw.complete !== true) return newSession()
     const answers = restoreAnswers(raw.answers)
-    if (fundingQuestions.some(question => !answers[question.id])) return newSession()
+    if (fundingQuestions.some(question => answers[question.id] === undefined)) return newSession()
     const index = Number.isInteger(raw.index) && raw.index >= 0 && raw.index < fundingQuestions.length ? raw.index : 0
     const scenario = raw.scenario as Input | undefined
     const validScenario = scenario && PARAMS.every(({ key, min, max }) => Number.isFinite(scenario[key]) && scenario[key] >= min && scenario[key] <= max) && Number.isInteger(scenario.levels)
@@ -247,6 +247,7 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
   const [manual, setManual] = useState(false)
   const [latestDraft, setLatestDraft] = useState<DecisionState>()
   const evaluatedInput = session.scenario ?? props.input
+  const questionInput = session.changes ? { ...evaluatedInput, ...session.changes } : evaluatedInput
   const outcome = session.complete ? evaluateFunding(session.answers, evaluatedInput) : null
   const changedScenario = PARAMS.some(({ key }) => props.input[key] !== evaluatedInput[key])
 
@@ -260,8 +261,12 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
     setSession(current => ({ ...current, index, complete: false }))
   }
 
-  function answer(id: QuestionId, value: string) {
+  function answer(id: QuestionId, value: string | number | undefined) {
     setSession(current => ({ ...current, answers: restoreAnswers({ ...current.answers, [id]: value }) }))
+  }
+
+  function updateScenario(key: InputKey, value: number) {
+    setSession(current => ({ ...current, changes: { ...current.changes, [key]: value } }))
   }
 
   function reset() {
@@ -274,13 +279,13 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
     requestAnimationFrame(() => document.getElementById('funding-question-title')?.focus())
   }
 
-  function generate() {
-    const evaluation = evaluateFunding(session.answers, props.input)
+  function generate(input: Input) {
+    const evaluation = evaluateFunding(session.answers, input)
     if (!evaluation) return
     const localDate = new Date().toLocaleDateString('sv-SE')
     const existing = initialState(GENERATED_KEY, { ...evaluation.draft, date: localDate }).draft
     const draft = { ...evaluation.draft, names: existing.names, date: existing.date }
-    const completedSession: Session = { ...session, complete: true, scenario: { ...props.input } }
+    const completedSession: Session = { answers: session.answers, index: session.index, complete: true, scenario: { ...input } }
     try {
       localStorage.setItem(GENERATED_KEY, JSON.stringify({ ...draft, optionReviewed: true }))
       localStorage.setItem(QUESTIONNAIRE_KEY, JSON.stringify(completedSession))
@@ -295,11 +300,11 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
   </>
   return <>
     {outcome ? <>
-      <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} onRecalculate={changedScenario ? generate : undefined} />
+      <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} onRecalculate={changedScenario ? () => generate(props.input) : undefined} />
       <DecisionEditor key={`questionnaire-${JSON.stringify(evaluatedInput)}`} {...props} input={evaluatedInput} result={calculate(evaluatedInput)} generated={latestDraft ?? outcome.draft} />
-    </> : <FundingQuestionnaire input={props.input} answers={session.answers} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={generate} onManual={() => setManual(true)} />}
+    </> : <FundingQuestionnaire input={questionInput} answers={session.answers} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={() => generate(questionInput)} onManual={() => setManual(true)} onUpdateScenario={updateScenario} />}
     <div className="funding-reset no-print">
-      <button type="button" className="atlas-outline" onClick={reset} disabled={Object.keys(session.answers).length === 0}>
+      <button type="button" className="atlas-outline" onClick={reset} disabled={!session.changes && Object.keys(session.answers).length === 0}>
         <ArrowCounterClockwise size={17} /> Fragebogen zurücksetzen
       </button>
     </div>

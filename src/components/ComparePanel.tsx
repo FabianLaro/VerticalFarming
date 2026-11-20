@@ -6,6 +6,7 @@ import { amount, number } from '../lib/format'
 import { ComparisonGraphic } from './ComparisonGraphic'
 import { EnergyEvidence } from './Knowledge'
 import { Sensitivity } from './Sensitivity'
+import { ScenarioControl } from './ScenarioControl'
 
 type Props = {
   input: Input
@@ -17,16 +18,6 @@ type Props = {
 }
 
 const primaryControls = ['levels', 'energyPerKg', 'gridFactor'] as const
-const controlLabels: Partial<Record<InputKey, string>> = { levels: 'Anbauebenen', energyPerKg: 'Strombedarf je kg', gridFactor: 'Strommix' }
-
-function ScenarioControl({ field, input, update }: { field: InputKey; input: Input; update: Props['update'] }) {
-  const param = PARAMS.find(candidate => candidate.key === field)!
-  const percentage = field === 'usable'
-  return <div className="atlas-slider" title={param.help}>
-    <label htmlFor={`param-${field}`}>{controlLabels[field] ?? param.label}<output htmlFor={`param-${field}`}>{number(input[field] * (percentage ? 100 : 1), 3)} <small>{percentage ? '%' : param.unit}</small></output></label>
-    <input id={`param-${field}`} data-testid={`param-${field}`} type="range" min={param.min} max={param.max} step={param.step} value={input[field]} onChange={event => update(field, event.currentTarget.valueAsNumber)} />
-  </div>
-}
 
 export function ComparePanel({ input, result, onSource, onDecide, update, selectPreset }: Props) {
   const [mode, setMode] = useState<ComparisonMode>('harvest')
