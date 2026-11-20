@@ -18,7 +18,7 @@ Voraussetzung ist **Node.js ab 22.12**. Auf dem Erstellungsrechner war Node.js *
 
 - **Standort:** Drei hypothetische Standorttypen für Dinslaken auswählen. Die Renderansicht zeigt Anbau, Licht und Wasser. Unter „3D öffnen“ stehen die selbst gebauten Blender-Modelle mit Gebäudeansichten, Kamera und Ersatzschema bereit.
 - **Vergleich:** Gleiche Jahresernte oder gleiche Grundfläche wählen. Die 2D-Grafik funktioniert ohne WebGL. Die drei sichtbaren Regler ändern Ebenenzahl, Strombedarf und Strommix der Vertical Farm. Weitere Annahmen, Vergleichsdaten, Recherchekarte und 3D-Vergleich lassen sich öffnen.
-- **Entscheidung:** Acht Fragen zu Förderziel und lokalen Gegebenheiten beantworten. Die Auswertung begründet eine Empfehlung für A, B oder C und erstellt einen editierbaren Decision Brief mit anklickbaren Belegen. Die Antworten sind Angaben zum Szenario. Der manuelle Brief ist weiterhin separat verfügbar.
+- **Entscheidung:** Acht Fragen zu Förderziel und lokalen Gegebenheiten beantworten. Die Auswertung begründet eine Empfehlung für A, B oder C und erstellt einen editierbaren Decision Brief mit anklickbaren Belegen. Frage 5 berechnet Stromteilkosten aus dem Vergleichsszenario und prüft eine wählbare Beispielgrenze. Frage 6 vergleicht den Strombeitrag zweier Strommixe. Vollkosten und Ökobilanzen bleiben Prüfaufgaben. Der Brief hält den verwendeten Szenariostand fest und kann mit geänderten Werten neu erstellt werden. Der manuelle Brief bleibt separat verfügbar.
 
 „**Vortrag starten**“ führt in sechs Schritten durch dieselben drei Ansichten.
 

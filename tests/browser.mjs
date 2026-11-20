@@ -209,14 +209,22 @@ await check('Fragenkatalog begründet einen Pilot und öffnet die Quelle direkt 
   await next.click()
   await qp.reload({ waitUntil: 'domcontentloaded' })
   await expect(qp.getByText('Frage 3 von 8', { exact: true })).toBeVisible()
-  for (let question = 3; question <= 8; question += 1) {
-    await qp.getByRole('button', { name: 'Unklar', exact: true }).click()
-    if (question < 8) await next.click()
+  const answers = ['Unklar', 'Unklar', 'Bis 3 €/kg', 'Beide Strommixe vergleichen', 'Unklar', 'Nachweise fehlen']
+  for (const [index, answer] of answers.entries()) {
+    if (index === 2) await expect(qp.locator('.funding-model-note')).toContainText('2,5 €/kg')
+    if (index === 3) {
+      await expect(qp.locator('.funding-model-note')).toContainText('4,06 kg CO₂eq/kg')
+      await expect(qp.locator('.funding-model-note')).toContainText('0,5 kg CO₂eq/kg')
+    }
+    await qp.getByRole('button', { name: answer, exact: true }).click()
+    if (index < answers.length - 1) await next.click()
   }
   await qp.getByRole('button', { name: 'Decision Brief erstellen', exact: true }).click()
   await expect(qp.getByRole('heading', { name: 'Befristete Pilotförderung', exact: true })).toBeVisible()
   const brief = qp.getByRole('article', { name: 'Druckbarer Decision Brief' })
   await expect(brief).toContainText('Eure Standortangaben')
+  await expect(brief).toContainText('Prüfgrenze 3 €/kg eingehalten')
+  await expect(brief).toContainText('4,06 kg CO₂eq/kg')
   await expect(qp.getByRole('button', { name: 'PDF drucken', exact: true })).toBeEnabled()
   await brief.getByRole('button', { name: 'Quelle Pennisi et al. 2025', exact: true }).first().click()
   await expect(qp.getByRole('dialog')).toContainText('Abb. 3, S. 5')

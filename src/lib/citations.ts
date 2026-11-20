@@ -61,7 +61,7 @@ export function sourceReference(sourceId: string): string {
 export function decisionReferences(state: DecisionState): string {
   const ids = new Set(['scenario', 'blom2022'])
   state.criteria.forEach(criterion => { if (criterion.source && getSource(criterion.source)) ids.add(criterion.source) })
-  const texts = [state.recommendation, ...state.conditions, ...state.pros, ...state.cons,
+  const texts = [state.scenarioBasis, state.recommendation, ...state.conditions, ...state.pros, ...state.cons,
     state.priorityReason, state.counterargument, state.response, state.uncertainty,
     state.conflictQuestion, state.comparisonQuestion]
   for (const match of texts.join(' ').matchAll(/\[([^\]]+)\]/gu)) {

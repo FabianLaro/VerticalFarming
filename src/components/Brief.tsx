@@ -18,6 +18,7 @@ export interface DecisionState {
   date: string
   goal: string
   siteBasis?: string
+  scenarioBasis?: string
   recommendation: string
   conditions: [string, string]
   priorities: CriterionId[]
@@ -101,6 +102,7 @@ export function briefText(state: DecisionState, input: Input, result: Result): s
     'Öffentliches Ziel', state.goal,
     `${state.option} · ${OPTIONS.find(option => option.id === state.option)?.label}`,
     ...(state.siteBasis ? ['Eure Standortangaben', state.siteBasis] : []),
+    ...(state.scenarioBasis ? ['Modellrechnung', state.scenarioBasis] : []),
     'Empfehlung und zwei Bedingungen', state.recommendation, ...state.conditions,
     'Drei Argumente dafür', ...state.pros, 'Drei Argumente dagegen', ...state.cons,
     chart.title, chart.caption,
@@ -156,6 +158,7 @@ export function Brief({ state, input, result, valid, onSource }: BriefProps) {
       <h2>{state.option} · {OPTIONS.find(option => option.id === state.option)?.label}</h2>
       <p><strong>Öffentliches Ziel</strong> {state.goal}</p>
       {state.siteBasis && <p><strong>Eure Standortangaben</strong> {state.siteBasis}</p>}
+      {state.scenarioBasis && <p><strong>Modellrechnung</strong> {cite(state.scenarioBasis)}</p>}
       <h3>Empfehlung und zwei Bedingungen</h3>
       <p>{cite(state.recommendation)}</p>
       <ol>{state.conditions.map((condition, index) => <li key={index}>{cite(condition)}</li>)}</ol>

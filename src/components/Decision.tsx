@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { PARAMS, calculate } from '../lib/model'
 import type { Input, Result } from '../lib/model'
 import { Brief, INITIAL_DECISION, OPTIONS, briefText, countWords, recommendationSentences } from './Brief'
 import type { CriterionId, DecisionState, Verdict } from './Brief'
@@ -48,7 +49,7 @@ function initialState(storageKey: string, fallback = INITIAL_DECISION): { draft:
         && parsed.criteria.every((criterion, index) => criterion.id === INITIAL_DECISION.criteria[index].id && typeof criterion.evidence === 'string' && ['+', '±', '−', '?'].includes(criterion.symbol))
       if (valid) return {
         confirmed: typeof parsed.optionReviewed === 'boolean' ? parsed.optionReviewed : parsed.option === 'B',
-        draft: { ...parsed, siteBasis: typeof parsed.siteBasis === 'string' ? parsed.siteBasis : undefined, goal: typeof parsed.goal === 'string' ? parsed.goal : INITIAL_DECISION.goal, criteria: parsed.criteria.map((criterion, index) => ({ ...INITIAL_DECISION.criteria[index], symbol: criterion.symbol, evidence: criterion.evidence, source: restoredCriterionSource(criterion.source, INITIAL_DECISION.criteria[index].source) })) },
+        draft: { ...parsed, siteBasis: typeof parsed.siteBasis === 'string' ? parsed.siteBasis : undefined, scenarioBasis: typeof parsed.scenarioBasis === 'string' ? parsed.scenarioBasis : undefined, goal: typeof parsed.goal === 'string' ? parsed.goal : INITIAL_DECISION.goal, criteria: parsed.criteria.map((criterion, index) => ({ ...INITIAL_DECISION.criteria[index], symbol: criterion.symbol, evidence: criterion.evidence, source: restoredCriterionSource(criterion.source, INITIAL_DECISION.criteria[index].source) })) },
       }
     }
   } catch { /* Local storage is optional, including in private browsing. */ }
@@ -219,7 +220,7 @@ function DecisionEditor({ input, result, onSource, generated }: DecisionProps & 
   </div>
 }
 
-type Session = { answers: Answers; index: number; complete: boolean }
+type Session = { answers: Answers; index: number; complete: boolean; scenario?: Input }
 
 function readSession(): Session {
   try {
@@ -228,7 +229,9 @@ function readSession(): Session {
     const next = fundingQuestions.findIndex(question => !answers[question.id])
     const complete = raw.complete === true && next === -1
     const index = Number.isInteger(raw.index) && raw.index >= 0 && raw.index < fundingQuestions.length ? raw.index : Math.max(0, next)
-    return { answers, complete, index: next === -1 ? index : Math.min(index, next) }
+    const scenario = raw.scenario as Input | undefined
+    const validScenario = scenario && PARAMS.every(({ key, min, max }) => Number.isFinite(scenario[key]) && scenario[key] >= min && scenario[key] <= max) && Number.isInteger(scenario.levels)
+    return { answers, complete, index: next === -1 ? index : Math.min(index, next), scenario: validScenario ? scenario : undefined }
   } catch {
     return { answers: {}, index: 0, complete: false }
   }
@@ -238,7 +241,9 @@ export function Decision(props: DecisionProps) {
   const [session, setSession] = useState(readSession)
   const [manual, setManual] = useState(false)
   const [latestDraft, setLatestDraft] = useState<DecisionState>()
-  const outcome = session.complete ? evaluateFunding(session.answers) : null
+  const evaluatedInput = session.scenario ?? props.input
+  const outcome = session.complete ? evaluateFunding(session.answers, evaluatedInput) : null
+  const changedScenario = PARAMS.some(({ key }) => props.input[key] !== evaluatedInput[key])
 
   useEffect(() => {
     try { localStorage.setItem(QUESTIONNAIRE_KEY, JSON.stringify(session)) }
@@ -254,7 +259,7 @@ export function Decision(props: DecisionProps) {
   }
 
   function generate() {
-    const evaluation = evaluateFunding(session.answers)
+    const evaluation = evaluateFunding(session.answers, props.input)
     if (!evaluation) return
     const localDate = new Date().toLocaleDateString('sv-SE')
     const existing = initialState(GENERATED_KEY, { ...evaluation.draft, date: localDate }).draft
@@ -262,7 +267,7 @@ export function Decision(props: DecisionProps) {
     try { localStorage.setItem(GENERATED_KEY, JSON.stringify({ ...draft, optionReviewed: true })) }
     catch { /* Pass the draft directly to the editor. */ }
     setLatestDraft(draft)
-    setSession(current => ({ ...current, complete: true }))
+    setSession(current => ({ ...current, complete: true, scenario: { ...props.input } }))
   }
 
   if (manual) return <>
@@ -270,10 +275,10 @@ export function Decision(props: DecisionProps) {
     <DecisionEditor key="manual" {...props} />
   </>
   if (outcome) return <>
-    <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} />
-    <DecisionEditor key="questionnaire" {...props} generated={latestDraft ?? outcome.draft} />
+    <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} onRecalculate={changedScenario ? generate : undefined} />
+    <DecisionEditor key={`questionnaire-${JSON.stringify(evaluatedInput)}`} {...props} input={evaluatedInput} result={calculate(evaluatedInput)} generated={latestDraft ?? outcome.draft} />
   </>
-  return <FundingQuestionnaire answers={session.answers} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={generate} onManual={() => setManual(true)} />
+  return <FundingQuestionnaire input={props.input} answers={session.answers} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={generate} onManual={() => setManual(true)} />
 }
 
 export default Decision
