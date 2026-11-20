@@ -18,13 +18,13 @@ Voraussetzung ist **Node.js ab 22.12**. Auf dem Erstellungsrechner war Node.js *
 
 - **Standort:** Drei hypothetische Standorttypen für Dinslaken auswählen. Die Renderansicht zeigt Anbau, Licht und Wasser. Unter „3D öffnen“ stehen die selbst gebauten Blender-Modelle mit Gebäudeansichten, Kamera und Ersatzschema bereit.
 - **Vergleich:** Gleiche Jahresernte oder gleiche Grundfläche wählen. Die 2D-Grafik funktioniert ohne WebGL. Die drei sichtbaren Regler ändern Ebenenzahl, Strombedarf und Strommix der Vertical Farm. Weitere Annahmen, Vergleichsdaten, Recherchekarte und 3D-Vergleich lassen sich öffnen.
-- **Entscheidung:** Ein öffentliches Förderziel formulieren, A, B und C anhand von fünf Kriterien bewerten und zwei begründete Prioritäten wählen. Der Decision Brief übernimmt die aktuelle Modellrechnung und zeigt den Flächenvergleich bei gleicher Jahresernte.
+- **Entscheidung:** Acht Fragen zu Förderziel und lokalen Gegebenheiten beantworten. Die Auswertung begründet eine Empfehlung für A, B oder C und erstellt einen editierbaren Decision Brief mit anklickbaren Belegen. Die Antworten sind Angaben zum Szenario. Der manuelle Brief ist weiterhin separat verfügbar.
 
 „**Vortrag starten**“ führt in sechs Schritten durch dieselben drei Ansichten.
 
 ## Ergebnis als einseitiges PDF
 
-Unter **Entscheidung** Förderziel, Namen, Datum und Position bearbeiten. Auf großen Bildschirmen steht die Druckvorschau neben der Bearbeitung. Der Brief übernimmt den aktuellen Szenariostand. Der Export wird erst bei vollständig ausgefüllten Pflichtfeldern, genau zwei Prioritäten, höchstens drei Sätzen für Empfehlung samt Bedingungen und höchstens **450 Wörtern einschließlich Beschriftungen** freigegeben.
+Unter **Entscheidung** den Fragebogen abschließen oder den Brief direkt manuell bearbeiten. Namen und Datum ergänzen. Auf großen Bildschirmen steht die Druckvorschau neben der Bearbeitung. Der Brief übernimmt den aktuellen Szenariostand. Der Export wird erst bei vollständig ausgefüllten Pflichtfeldern, genau zwei Prioritäten, höchstens drei Sätzen für Empfehlung samt Bedingungen und höchstens **450 Wörtern einschließlich Beschriftungen** freigegeben.
 
 „**PDF drucken**“ wählen und im Browser **Als PDF speichern** einstellen: **A4, Hochformat, 100 %**, Browser-Kopf- und Fußzeilen aus. Die App prüft zusätzlich, ob der Text auf eine A4-Seite passt. Nach umfangreicher eigener Bearbeitung die Vorschau erneut prüfen.
 

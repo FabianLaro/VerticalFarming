@@ -15,6 +15,15 @@ const printLocators: Record<string, string> = {
   fraunhofer: 'Projektziele; Ergebnis: ALTMARKTgarten',
 }
 
+export function sourceIdForMarker(marker: string): string | undefined {
+  return Object.hasOwn(markerSources, marker) ? markerSources[marker] : undefined
+}
+
+export function hasCitation(text: string): boolean {
+  return [...text.matchAll(/\[([A-Z0-9]+(?:,\s*[A-Z0-9]+)*)\]/gu)]
+    .some(match => match[1].split(',').every(marker => sourceIdForMarker(marker.trim())))
+}
+
 export function citationMarker(sourceId: string | null): string {
   const marker = sourceId && getSource(sourceId) && sourceMarkers[sourceId]
   return marker ? `[${marker}]` : '[Quelle offen]'
@@ -50,14 +59,15 @@ export function sourceReference(sourceId: string): string {
 
 /** Selected criterion sources and citations still used elsewhere form the printed bibliography. */
 export function decisionReferences(state: DecisionState): string {
-  const ids = new Set(['scenario', 'uba2026', 'blom2022'])
+  const ids = new Set(['scenario', 'blom2022'])
   state.criteria.forEach(criterion => { if (criterion.source && getSource(criterion.source)) ids.add(criterion.source) })
   const texts = [state.recommendation, ...state.conditions, ...state.pros, ...state.cons,
     state.priorityReason, state.counterargument, state.response, state.uncertainty,
     state.conflictQuestion, state.comparisonQuestion]
   for (const match of texts.join(' ').matchAll(/\[([^\]]+)\]/gu)) {
     for (const marker of match[1].split(',').map(value => value.trim())) {
-      if (markerSources[marker]) ids.add(markerSources[marker])
+      const id = sourceIdForMarker(marker)
+      if (id) ids.add(id)
     }
   }
   return Object.keys(sourceMarkers).filter(id => ids.has(id)).map(sourceReference).join(' ')

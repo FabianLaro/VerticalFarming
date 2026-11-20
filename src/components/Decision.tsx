@@ -3,10 +3,15 @@ import type { Input, Result } from '../lib/model'
 import { Brief, INITIAL_DECISION, OPTIONS, briefText, countWords, recommendationSentences } from './Brief'
 import type { CriterionId, DecisionState, Verdict } from './Brief'
 import { getSource, sources } from '../data/catalog'
-import { citationMarker, evidenceWithoutCitation, restoredCriterionSource, selectCriterionSource } from '../lib/citations'
+import { citationMarker, hasCitation, evidenceWithoutCitation, restoredCriterionSource, selectCriterionSource } from '../lib/citations'
+import { FundingQuestionnaire, FundingSummary } from './FundingQuestionnaire'
+import { evaluateFunding, fundingQuestions, restoreAnswers } from '../lib/funding-questionnaire'
+import type { Answers, QuestionId } from '../lib/funding-questionnaire'
 import './decision.css'
 
 const STORAGE_KEY = 'stadtlabor2040-decision-v1'
+const GENERATED_KEY = 'stadtlabor2040-decision-generated-v1'
+const QUESTIONNAIRE_KEY = 'stadtlabor2040-funding-answers-v1'
 const MAX_BRIEF_HEIGHT = 273 * 96 / 25.4
 
 function measureBrief(): number | null {
@@ -24,9 +29,9 @@ function measureBrief(): number | null {
 
 type StoredDecision = DecisionState & { optionReviewed?: boolean }
 
-function initialState(): { draft: DecisionState; confirmed: boolean } {
+function initialState(storageKey: string, fallback = INITIAL_DECISION): { draft: DecisionState; confirmed: boolean } {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey)
     if (raw) {
       const parsed = JSON.parse(raw) as StoredDecision
       const strings: (keyof DecisionState)[] = ['names', 'date', 'recommendation', 'priorityReason', 'counterargument', 'response', 'uncertainty', 'conflictQuestion', 'comparisonQuestion']
@@ -43,11 +48,11 @@ function initialState(): { draft: DecisionState; confirmed: boolean } {
         && parsed.criteria.every((criterion, index) => criterion.id === INITIAL_DECISION.criteria[index].id && typeof criterion.evidence === 'string' && ['+', '±', '−', '?'].includes(criterion.symbol))
       if (valid) return {
         confirmed: typeof parsed.optionReviewed === 'boolean' ? parsed.optionReviewed : parsed.option === 'B',
-        draft: { ...parsed, goal: typeof parsed.goal === 'string' ? parsed.goal : INITIAL_DECISION.goal, criteria: parsed.criteria.map((criterion, index) => ({ ...INITIAL_DECISION.criteria[index], symbol: criterion.symbol, evidence: criterion.evidence, source: restoredCriterionSource(criterion.source, INITIAL_DECISION.criteria[index].source) })) },
+        draft: { ...parsed, siteBasis: typeof parsed.siteBasis === 'string' ? parsed.siteBasis : undefined, goal: typeof parsed.goal === 'string' ? parsed.goal : INITIAL_DECISION.goal, criteria: parsed.criteria.map((criterion, index) => ({ ...INITIAL_DECISION.criteria[index], symbol: criterion.symbol, evidence: criterion.evidence, source: restoredCriterionSource(criterion.source, INITIAL_DECISION.criteria[index].source) })) },
       }
     }
   } catch { /* Local storage is optional, including in private browsing. */ }
-  return { draft: structuredClone(INITIAL_DECISION), confirmed: true }
+  return { draft: structuredClone(fallback), confirmed: true }
 }
 
 interface DecisionProps {
@@ -81,26 +86,28 @@ const optionComparison: Record<'A' | 'B' | 'C', { symbol: Verdict; evidence: str
   ],
 }
 
-export function Decision({ input, result, onSource }: DecisionProps) {
+function DecisionEditor({ input, result, onSource, generated }: DecisionProps & { generated?: DecisionState }) {
+  const storageKey = generated ? GENERATED_KEY : STORAGE_KEY
   const editor = useRef<HTMLElement>(null)
-  const [initial] = useState(initialState)
+  const [initial] = useState(() => initialState(storageKey, generated))
   const [state, setState] = useState(initial.draft)
   const [confirmed, setConfirmed] = useState(initial.confirmed)
-  const [showPreview, setShowPreview] = useState(false)
+  const [showPreview, setShowPreview] = useState(Boolean(generated))
+  const [showFields, setShowFields] = useState(!generated)
   const [saved, setSaved] = useState(true)
   const [layoutHeight, setLayoutHeight] = useState<number | null>(null)
   const words = countWords(briefText(state, input, result))
   const sentences = recommendationSentences(state)
   const requiredTexts = [state.goal, state.recommendation, ...state.conditions, ...state.pros, ...state.cons, state.priorityReason, state.counterargument, state.response, state.uncertainty, state.conflictQuestion, state.comparisonQuestion, ...state.criteria.map(criterion => criterion.evidence)]
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(state.date) && Number.isFinite(Date.parse(state.date)) && new Date(state.date).toISOString().slice(0, 10) === state.date
-  const contentValid = confirmed && [...state.pros, ...state.cons].every(t => /\[(?:P|S|D|F|M|A|B|U|R|AZ)(?:,\s*(?:P|S|D|F|M|A|B|U|R|AZ))*\]/.test(t)) && words <= 450 && sentences <= 3 && sentences > 0 && state.priorities.length === 2 && requiredTexts.every(text => text.trim().length > 0) && state.names.trim().length > 0 && validDate
+  const contentValid = confirmed && [...state.pros, ...state.cons].every(hasCitation) && words <= 450 && sentences <= 3 && sentences > 0 && state.priorities.length === 2 && requiredTexts.every(text => text.trim().length > 0) && state.names.trim().length > 0 && validDate
   const fitsPage = layoutHeight !== null && layoutHeight <= MAX_BRIEF_HEIGHT
   const valid = contentValid && fitsPage
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, optionReviewed: confirmed })); setSaved(true) }
+    try { localStorage.setItem(storageKey, JSON.stringify({ ...state, optionReviewed: confirmed })); setSaved(true) }
     catch { setSaved(false) }
-  }, [state, confirmed])
+  }, [state, confirmed, storageKey])
 
   useEffect(() => {
     setLayoutHeight(null)
@@ -121,7 +128,7 @@ export function Decision({ input, result, onSource }: DecisionProps) {
       window.removeEventListener('resize', resize)
       section?.removeEventListener('toggle', resize, true)
     }
-  }, [state])
+  }, [state, showFields])
 
   function printBrief() {
     const height = measureBrief()
@@ -143,9 +150,18 @@ export function Decision({ input, result, onSource }: DecisionProps) {
     setState(previous => ({ ...previous, [key]: updated }))
   }
 
+  const identification = <div className="decision-identification"><label className="decision-field">Name(n)<input type="text" maxLength={100} value={state.names} onChange={event => update('names', event.target.value)} /></label><label className="decision-field">Datum<input type="date" value={state.date} onChange={event => update('date', event.target.value)} /></label></div>
+
   return <div className="atlas-decision-grid">
     <section ref={editor} className="decision-panel no-print" aria-labelledby="decision-heading" data-print-height={layoutHeight ?? undefined}>
       <h2 id="decision-heading" className="visually-hidden">Förderurteil bearbeiten</h2>
+      {generated && <div className="generated-fields">
+        <h2>Decision Brief vorbereiten</h2>
+        <p>Klicke im Brief auf einen Kurzbeleg, um die Quelle und ihre Grenzen zu sehen.</p>
+        {identification}
+        <button type="button" className="atlas-outline" aria-expanded={showFields} onClick={() => setShowFields(value => !value)}>{showFields ? 'Bearbeitung schließen' : 'Brief bearbeiten'}</button>
+      </div>}
+      {showFields && <>
       <label className="decision-field atlas-goal">Öffentliches Förderziel<textarea rows={2} maxLength={160} value={state.goal} onChange={event => update('goal', event.target.value)} /></label>
 
       <fieldset className="decision-options"><legend>Welche Förderung empfiehlst du?</legend>{OPTIONS.map(option => <label key={option.id} className={state.option === option.id ? 'decision-option selected' : 'decision-option'}><input type="radio" name="funding-option" value={option.id} checked={state.option === option.id} onChange={() => { update('option', option.id); setConfirmed(false) }} /><span className="option-letter">{option.id}</span><span><strong>{option.label}</strong><small>{option.description}</small></span></label>)}</fieldset>
@@ -185,11 +201,10 @@ export function Decision({ input, result, onSource }: DecisionProps) {
         ['counterargument', 'Stärkstes Gegenargument'], ['response', 'Antwort darauf'], ['uncertainty', 'Größte verbleibende Unsicherheit'], ['conflictQuestion', 'Offene Frage zu einem Zielkonflikt'], ['comparisonQuestion', 'Offene Frage zum Vergleich mit einem anderen Ansatz'],
       ] as const).map(([key, label]) => <label className="decision-field" key={key}>{label}<textarea aria-label={label} rows={2} maxLength={240} value={state[key]} onChange={event => update(key, event.target.value)} /></label>)}</div></details>
 
-      <details className="decision-details"><summary>Name, Datum und Beispiel zurücksetzen</summary><div className="decision-details-content"><div className="decision-identification"><label className="decision-field">Name(n)<input type="text" maxLength={100} value={state.names} onChange={event => update('names', event.target.value)} /></label><label className="decision-field">Datum<input type="date" value={state.date} onChange={event => update('date', event.target.value)} /></label></div><button type="button" className="secondary-button" onClick={() => (setState(structuredClone(INITIAL_DECISION)), setConfirmed(true))}>Beispielposition wiederherstellen</button><small>{saved ? 'Deine Position wird nur in diesem Browser auf diesem Gerät gespeichert.' : 'Speichern im Browser ist nicht möglich. Änderungen gelten für diese Sitzung.'}</small></div></details>
-
-      {!valid && <p className="decision-validation" role="status">Vor dem Export: höchstens 450 Wörter, höchstens drei Empfehlungssätze, genau zwei Prioritäten, Name und Datum sowie alle Pflichtfelder ausfüllen. Das Layout muss auf eine A4-Seite passen.</p>}
+      {!generated && <details className="decision-details"><summary>Name, Datum und Beispiel zurücksetzen</summary><div className="decision-details-content">{identification}<button type="button" className="secondary-button" onClick={() => (setState(structuredClone(INITIAL_DECISION)), setConfirmed(true))}>Beispielposition wiederherstellen</button><small>{saved ? 'Deine Position wird nur in diesem Browser auf diesem Gerät gespeichert.' : 'Speichern im Browser ist nicht möglich. Änderungen gelten für diese Sitzung.'}</small></div></details>}
       <div className="atlas-counter-summary"><strong>Stärkstes Gegenargument</strong><p>{state.counterargument} {state.response}</p></div>
       <details className="atlas-details atlas-environment"><summary>Umwelt am Standort prüfen</summary><p>Klima braucht eine Vollbilanz. Bei Boden und Biodiversität zählen Versiegelung und Lebensräume. Beim Wasser gehören Abwasser und Nährstoffverluste zur Prüfung. Für eine Anlagenbilanz fehlen außerdem Material- und Gebäudedaten.</p></details>
+      </>}
       {!valid && <p className="decision-validation" role="status">Für den Export müssen Ziel, Name, Datum, Pflichtfelder und sechs Kurzbelege vorliegen. Wähle zwei Prioritäten und kürze die Empfehlung bei Bedarf auf drei Sätze.</p>}
     </section>
 
@@ -199,9 +214,66 @@ export function Decision({ input, result, onSource }: DecisionProps) {
         <button type="button" className="atlas-outline atlas-preview-toggle" onClick={() => setShowPreview(value => !value)} aria-expanded={showPreview}>{showPreview ? 'Vorschau schließen' : 'Vorschau öffnen'}</button>
         <button type="button" className="atlas-primary atlas-print" onClick={printBrief} disabled={!valid}>PDF drucken</button>
       </div>
-      <div className="atlas-paper"><Brief state={state} input={input} result={result} valid={valid} /></div>
+      <div className="atlas-paper"><Brief state={state} input={input} result={result} valid={valid} onSource={onSource} /></div>
     </aside>
   </div>
+}
+
+type Session = { answers: Answers; index: number; complete: boolean }
+
+function readSession(): Session {
+  try {
+    const raw = JSON.parse(localStorage.getItem(QUESTIONNAIRE_KEY) ?? '{}')
+    const answers = restoreAnswers(raw.answers)
+    const next = fundingQuestions.findIndex(question => !answers[question.id])
+    const complete = raw.complete === true && next === -1
+    const index = Number.isInteger(raw.index) && raw.index >= 0 && raw.index < fundingQuestions.length ? raw.index : Math.max(0, next)
+    return { answers, complete, index: next === -1 ? index : Math.min(index, next) }
+  } catch {
+    return { answers: {}, index: 0, complete: false }
+  }
+}
+
+export function Decision(props: DecisionProps) {
+  const [session, setSession] = useState(readSession)
+  const [manual, setManual] = useState(false)
+  const [latestDraft, setLatestDraft] = useState<DecisionState>()
+  const outcome = session.complete ? evaluateFunding(session.answers) : null
+
+  useEffect(() => {
+    try { localStorage.setItem(QUESTIONNAIRE_KEY, JSON.stringify(session)) }
+    catch { /* The questionnaire remains available in the current view. */ }
+  }, [session])
+
+  function goTo(index: number) {
+    setSession(current => ({ ...current, index, complete: false }))
+  }
+
+  function answer(id: QuestionId, value: string) {
+    setSession(current => ({ ...current, answers: restoreAnswers({ ...current.answers, [id]: value }) }))
+  }
+
+  function generate() {
+    const evaluation = evaluateFunding(session.answers)
+    if (!evaluation) return
+    const localDate = new Date().toLocaleDateString('sv-SE')
+    const existing = initialState(GENERATED_KEY, { ...evaluation.draft, date: localDate }).draft
+    const draft = { ...evaluation.draft, names: existing.names, date: existing.date }
+    try { localStorage.setItem(GENERATED_KEY, JSON.stringify({ ...draft, optionReviewed: true })) }
+    catch { /* Pass the draft directly to the editor. */ }
+    setLatestDraft(draft)
+    setSession(current => ({ ...current, complete: true }))
+  }
+
+  if (manual) return <>
+    <div className="funding-manual-nav no-print"><button type="button" className="atlas-text" onClick={() => setManual(false)}>Zum Fragenkatalog</button></div>
+    <DecisionEditor key="manual" {...props} />
+  </>
+  if (outcome) return <>
+    <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} />
+    <DecisionEditor key="questionnaire" {...props} generated={latestDraft ?? outcome.draft} />
+  </>
+  return <FundingQuestionnaire answers={session.answers} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={generate} onManual={() => setManual(true)} />
 }
 
 export default Decision

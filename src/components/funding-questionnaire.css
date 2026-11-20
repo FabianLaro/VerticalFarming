@@ -1,0 +1,69 @@
+.funding-quiz {
+  display: grid;
+  grid-template-columns: minmax(200px, .34fr) minmax(0, 1fr);
+  max-width: 1030px;
+  margin: 0 auto 24px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.funding-quiz-sidebar { display: flex; flex-direction: column; align-items: start; gap: 13px; padding: clamp(18px, 3vw, 34px); color: #fcfaee; background: #192e26; }
+.funding-quiz-sidebar > svg { color: var(--highlight); }
+.funding-quiz-sidebar h2 { font-size: 24px; letter-spacing: -.035em; }
+.funding-quiz-sidebar p { color: #ecf0e5; font-size: 13px; line-height: 1.55; }
+.funding-quiz-sidebar .funding-note { color: #ddedac; font-size: 12px; padding-top: 9px; border-top: 1px solid #526657; }
+.funding-manual-link { display: flex; gap: 6px; align-items: center; color: #fcfaee; font-size: 12px; text-align: left; padding: 6px 0; margin-top: auto; text-decoration: underline; text-underline-offset: 4px; }
+.funding-question { min-width: 0; display: flex; flex-direction: column; padding: clamp(18px, 3.2vw, 42px); gap: 11px; }
+.funding-progress { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 720; }
+.funding-progress > div { display: flex; align-items: center; }
+.funding-progress button { min-width: 21px; min-height: 27px; padding: 4px; }
+.funding-progress button::after { content: ''; display: block; height: 6px; border-radius: 2px; background: #b9c4b2; }
+.funding-progress button.is-answered::after { background: #51764f; }
+.funding-progress button[aria-current]::after { height: 9px; background: #173c30; }
+.funding-topic { font-size: 12px; font-weight: 790; color: #46694f; margin-top: 13px; }
+.funding-question h2 { max-width: 27ch; font-size: clamp(26px, 3.15vw, 43px); font-weight: 750; line-height: 1.13; letter-spacing: -.04em; text-wrap: initial; }
+.funding-context { max-width: 68ch; font-size: 14px; min-height: 38px; }
+.funding-answer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 7px 0 4px; }
+.funding-answer { --answer-color: #46694f; --answer-bg: #ebf1e1; display: flex; align-items: start; gap: 8px; text-align: left; padding: 12px; min-height: 56px; border: 1px solid var(--line); border-radius: 7px; background: #fff; font-size: 13px; font-weight: 750; }
+.funding-answer svg { color: var(--answer-color); }
+.funding-answer-unknown { --answer-color: #765514; --answer-bg: #f5edcf; }
+.funding-answer-no { --answer-color: #8b4434; --answer-bg: #f4e7de; }
+.funding-answer:hover, .funding-answer[aria-pressed=true] { background: var(--answer-bg); border-color: var(--answer-color); }
+.funding-answer[aria-pressed=true] { box-shadow: inset 0 0 0 1px var(--answer-color); }
+.funding-question-actions { display: flex; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.funding-result { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; background: #e7eedc; border: 1px solid #bac9ac; border-radius: 10px; padding: 15px 18px; }
+.funding-result-option { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 7px; background: var(--green); color: #fff; font-size: 23px; font-weight: 800; }
+.funding-result p { font-size: 13px; }
+.funding-result h2 { font-size: 23px; margin-block: 3px; }
+.funding-result-details { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; margin: 8px 0 17px; }
+.funding-result-details > details { border-top: 0; }
+.funding-rule-notes p, .funding-result-details details > p { font-size: 13px; margin-bottom: 5px; }
+.funding-review-list { padding: 0; list-style: none; max-width: 720px; }
+.funding-review-list li { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); gap: 8px; font-size: 13px; }
+.funding-review-list li > span { text-align: right; }
+.funding-manual-nav { margin-bottom: 13px; }
+.generated-fields { margin: 0 0 15px; }
+.generated-fields h2 { font-size: 20px; margin-bottom: 7px; }
+.generated-fields p { font-size: 13px; margin-bottom: 9px; }
+.generated-fields .decision-field { margin-bottom: 10px; }
+.brief-citations { white-space: nowrap; color: #1e5140; }
+.brief-citations button { display: inline; font: inherit; padding: 0 1px; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 720px) {
+  .funding-quiz { grid-template-columns: minmax(0, 1fr); }
+  .funding-quiz-sidebar { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 9px; align-items: center; }
+  .funding-quiz-sidebar h2 { font-size: 20px; }
+  .funding-quiz-sidebar p, .funding-quiz-sidebar button { grid-column: 2; }
+  .funding-quiz-sidebar .funding-note { display: none; }
+  .funding-answer-grid { grid-template-columns: minmax(0, 1fr); }
+  .funding-answer { min-height: 46px; padding: 8px 10px; align-items: center; }
+  .funding-result { grid-template-columns: auto minmax(0, 1fr); padding: 10px 12px; }
+  .funding-result button { grid-column: 2; justify-self: start; }
+  .funding-result-details { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .generated-fields .decision-identification { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+@media print {
+  .brief-citations { color: inherit; }
+  .brief-citations button { color: inherit; padding: 0; text-decoration: none; }
+}

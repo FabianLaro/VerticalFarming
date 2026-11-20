@@ -42,7 +42,13 @@ async function check(name, run) {
   try { await run(); report.checks.push({ name, passed: true }); console.log(`OK ${name}`) }
   catch (error) { report.checks.push({ name, passed: false, error: error.stack || String(error) }); console.error(`FEHLER ${name}: ${error.message}`) }
 }
-async function nav(page, name) { await page.getByRole('navigation', { name: 'Bereiche' }).getByRole('button', { name, exact: true }).click() }
+async function nav(page, name, { manual = true } = {}) {
+  await page.getByRole('navigation', { name: 'Bereiche' }).getByRole('button', { name, exact: true }).click()
+  if (name === 'Entscheidung' && manual) {
+    const toggle = page.getByRole('button', { name: /^(Brief manuell bearbeiten|Manuellen Brief öffnen)$/u })
+    if (await toggle.isVisible()) await toggle.click()
+  }
+}
 async function load(page) {
   await page.goto(baseURL, { waitUntil: 'networkidle' })
   await expect(page.getByRole('heading', { name: 'Soll Dinslaken Vertical Farming fördern?' })).toBeVisible()
@@ -188,6 +194,39 @@ await check('Strukturiertes Datenverzeichnis exportiert Quellen, Metadaten und a
   assert.equal(downloaded.results.electricityCost.unit, '€/Jahr')
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Basisszenario wiederherstellen' }).click()
+})
+
+await check('Fragenkatalog begründet einen Pilot und öffnet die Quelle direkt im Brief', async () => {
+  const quizContext = await context()
+  const qp = await quizContext.newPage()
+  await load(qp)
+  await nav(qp, 'Entscheidung', { manual: false })
+  const next = qp.getByRole('button', { name: 'Weiter', exact: true })
+  await expect(next).toBeDisabled()
+  await qp.getByRole('button', { name: 'Verlässliche lokale Versorgung', exact: true }).click()
+  await next.click()
+  await qp.getByRole('button', { name: 'Trifft zu', exact: true }).click()
+  await next.click()
+  await qp.reload({ waitUntil: 'domcontentloaded' })
+  await expect(qp.getByText('Frage 3 von 8', { exact: true })).toBeVisible()
+  for (let question = 3; question <= 8; question += 1) {
+    await qp.getByRole('button', { name: 'Unklar', exact: true }).click()
+    if (question < 8) await next.click()
+  }
+  await qp.getByRole('button', { name: 'Decision Brief erstellen', exact: true }).click()
+  await expect(qp.getByRole('heading', { name: 'Befristete Pilotförderung', exact: true })).toBeVisible()
+  const brief = qp.getByRole('article', { name: 'Druckbarer Decision Brief' })
+  await expect(brief).toContainText('Eure Standortangaben')
+  await expect(qp.getByRole('button', { name: 'PDF drucken', exact: true })).toBeEnabled()
+  await brief.getByRole('button', { name: 'Quelle Pennisi et al. 2025', exact: true }).first().click()
+  await expect(qp.getByRole('dialog')).toContainText('Abb. 3, S. 5')
+  await qp.keyboard.press('Escape')
+  await qp.reload({ waitUntil: 'domcontentloaded' })
+  await expect(brief).toBeVisible()
+  await qp.getByRole('button', { name: 'Antworten ändern', exact: true }).click()
+  await expect(qp.getByText('Frage 1 von 8', { exact: true })).toBeVisible()
+  await expect(qp.getByRole('button', { name: 'Verlässliche lokale Versorgung', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await quizContext.close()
 })
 
 await check('Entscheidung: zwei Prioritäten, persistente Bearbeitung und Exportvalidierung', async () => {
