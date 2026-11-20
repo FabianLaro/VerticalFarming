@@ -1,12 +1,7 @@
 import { evidenceData } from '../data/catalog'
 import { number } from '../lib/format'
 
-export function Knowledge({ onSource }: { onSource: (id: string) => void; onScenario: () => void }) {
-  const efficiencies = ['eue-science', 'eue-business'].map(id => evidenceData.find(datum => datum.id === id)!)
-  const water = evidenceData.find(datum => datum.id === 'water-efficiency')!
-  const edenHarvest = evidenceData.find(datum => datum.id === 'eden-harvest')!
-  const edenArea = evidenceData.find(datum => datum.id === 'eden-area')!
-
+export function Knowledge({ onSource }: { onSource: (id: string) => void }) {
   return <details className="knowledge no-print" aria-labelledby="knowledge-heading">
     <summary className="knowledge-header"><h2 id="knowledge-heading">Hintergrund</h2><span>Ressourcen · Daten · Begriffe</span></summary>
     <div className="knowledge-index">
@@ -27,22 +22,27 @@ export function Knowledge({ onSource }: { onSource: (id: string) => void; onScen
       </details>
 
       <details className="knowledge-topic">
-        <summary>Ist regionaler Salat automatisch klimafreundlicher?</summary>
+        <summary>Begriffe</summary>
         <div className="knowledge-content">
-          <p><strong>Regionalität allein belegt keinen Klimavorteil.</strong> Energiebedarf, Stromversorgung und Vergleichssystem müssen innerhalb einer vergleichbaren Bilanz betrachtet werden.</p>
-          <ol className="knowledge-research">
-            <li><b>Behauptung (M5):</b> „Regional erzeugter Salat aus einer vertikalen Farm ist automatisch klimafreundlicher als importierter Salat.“</li>
-            <li><b>Befund:</b> Kunstlicht und Klimatisierung können Transportvorteile überwiegen; Entfernung beschreibt nur einen Bilanzteil.</li>
-            <li><b>Quelle:</b> Stanghellini & Katzin, „The dark side of lighting“ (2024).</li>
-            <li><b>Fundstelle:</b> Abstract, Energie- und Transportvergleich sowie Ergebnisdiskussion; Vollbeleg im Quellenfenster.</li>
-            <li><b>Bezug:</b> Literaturanalyse 2024; abgerufen am 16.11.2026.</li>
-            <li><b>Offen:</b> Eine lokale Vollbilanz fehlt. Gemessener Energiebedarf und dokumentierte Energieherkunft sind überprüfbare Bedingungen, die das Ergebnis verändern können.</li>
-          </ol>
-          <div className="knowledge-sources"><button className="source-link" onClick={() => onSource('stanghellini2024')}>Stanghellini & Katzin 2024</button><button className="source-link" onClick={() => onSource('regional')}>BLE: Saison und Regionalität</button></div>
+          <dl className="knowledge-facts">
+            <div><dt>Hydroponik</dt><dd>Die Wurzeln erhalten Wasser und gelöste Nährstoffe ohne Ackerboden.</dd></div>
+            <div><dt>Flächenertrag</dt><dd>Ernte je definierter Fläche und Zeit; Gebäudegrundfläche und summierte Anbaufläche sind verschieden.</dd></div>
+            <div><dt>Systemgrenze</dt><dd>Sie legt fest, welche Prozesse und Vorleistungen eine Bilanz erfasst.</dd></div>
+            <div><dt>Resilienz</dt><dd>Die Fähigkeit, Störungen zu bewältigen. Technische Kontrolle kann Risiken auch verlagern.</dd></div>
+          </dl>
         </div>
       </details>
+    </div>
+  </details>
+}
 
-      <details className="knowledge-topic">
+export function EnergyEvidence({ onSource }: { onSource: (id: string) => void }) {
+  const efficiencies = ['eue-science', 'eue-business'].map(id => evidenceData.find(datum => datum.id === id)!)
+  const water = evidenceData.find(datum => datum.id === 'water-efficiency')!
+  const edenHarvest = evidenceData.find(datum => datum.id === 'eden-harvest')!
+  const edenArea = evidenceData.find(datum => datum.id === 'eden-area')!
+
+  return <details className="atlas-details atlas-evidence">
         <summary>Was die Daten aus M3 belegen</summary>
         <div className="knowledge-content">
           <figure className="m3-chart">
@@ -57,18 +57,4 @@ export function Knowledge({ onSource }: { onSource: (id: string) => void; onScen
           <div className="knowledge-sources"><button className="source-link" onClick={() => onSource('pennisi2025')}>Pennisi et al. 2025: Werte und Grenzen</button><button className="source-link" onClick={() => onSource('dlr2020')}>EDEN ISS: Versuch 2018</button></div>
         </div>
       </details>
-
-      <details className="knowledge-topic">
-        <summary>Begriffe</summary>
-        <div className="knowledge-content">
-          <dl className="knowledge-facts">
-            <div><dt>Hydroponik</dt><dd>Die Wurzeln erhalten Wasser und gelöste Nährstoffe ohne Ackerboden.</dd></div>
-            <div><dt>Flächenertrag</dt><dd>Ernte je definierter Fläche und Zeit; Gebäudegrundfläche und summierte Anbaufläche sind verschieden.</dd></div>
-            <div><dt>Systemgrenze</dt><dd>Sie legt fest, welche Prozesse und Vorleistungen eine Bilanz erfasst.</dd></div>
-            <div><dt>Resilienz</dt><dd>Die Fähigkeit, Störungen zu bewältigen. Technische Kontrolle kann Risiken auch verlagern.</dd></div>
-          </dl>
-        </div>
-      </details>
-    </div>
-  </details>
 }

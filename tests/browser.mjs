@@ -15,14 +15,14 @@ const browser = await chromium.launch({ executablePath, headless: true, args })
 const errors = []
 const externalRequests = []
 const localAssetStatuses = {}
-const report = { date: '2026-11-17', baseURL, browser: await browser.version(), checks: [], errors, externalRequests, localAssetStatuses }
+const report = { date: new Date().toISOString().slice(0, 10), baseURL, browser: await browser.version(), checks: [], errors, externalRequests, localAssetStatuses }
 
 async function context(options = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...options })
   // Simulate no access to the internet while retaining the explicitly local server.
   await ctx.route('**/*', async route => {
     const url = new URL(route.request().url())
-    if (['127.0.0.1', 'localhost'].includes(url.hostname) || ['data:', 'blob:'].includes(url.protocol)) return route.continue()
+    if (url.origin === new URL(baseURL).origin || ['data:', 'blob:'].includes(url.protocol)) return route.continue()
     externalRequests.push(url.href)
     return route.abort('internetdisconnected')
   })
@@ -32,7 +32,7 @@ async function context(options = {}) {
     page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()) })
     page.on('response', response => {
       const url = new URL(response.url())
-      if (/\/(?:models\/[^/]+\.glb|renders\/[^/]+\.png)$/u.test(url.pathname)) localAssetStatuses[url.pathname] = response.status()
+      if (/\/(?:models\/[^/]+\.glb|renders\/[^/]+\.(?:png|webp))$/u.test(url.pathname)) localAssetStatuses[url.pathname] = response.status()
     })
   })
   return ctx
@@ -42,11 +42,10 @@ async function check(name, run) {
   try { await run(); report.checks.push({ name, passed: true }); console.log(`OK ${name}`) }
   catch (error) { report.checks.push({ name, passed: false, error: error.stack || String(error) }); console.error(`FEHLER ${name}: ${error.message}`) }
 }
-async function nav(page, name) { await page.locator('.main-nav').getByRole('button', { name: new RegExp(name) }).click() }
+async function nav(page, name) { await page.getByRole('navigation', { name: 'Bereiche' }).getByRole('button', { name, exact: true }).click() }
 async function load(page) {
   await page.goto(baseURL, { waitUntil: 'networkidle' })
-  await page.locator('canvas').waitFor()
-  await page.waitForTimeout(600)
+  await expect(page.getByRole('heading', { name: 'Soll Dinslaken Vertical Farming fördern?' })).toBeVisible()
 }
 async function screenshot(page, name) { await page.screenshot({ path: `${output}/browser-${name}.png`, fullPage: true }) }
 async function openDetails(details) {
@@ -91,200 +90,68 @@ const page = await ctx.newPage()
 if (checkFilter) await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
 else await load(page)
 
-await check('Initiale echte WebGL-Szene und lokales Laden ohne Internetzugriff', async () => {
-  assert.equal(await page.getByTestId('scene').getAttribute('data-levels'), '4')
-  assert.match(await page.getByTestId('harvest').innerText(), /156/)
-  const webgl = await page.locator('canvas').evaluate(canvas => !!(canvas.getContext('webgl2') || canvas.getContext('webgl')))
-  assert.ok(webgl, 'Echte WebGL-Szene muss statt Ersatzansicht aktiv sein')
-  report.renderer = await page.locator('canvas').evaluate(canvas => {
-    const gl = canvas.getContext('webgl2')
-    const debug = gl?.getExtension('WEBGL_debug_renderer_info')
-    return debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : 'WebGL ohne Gerätekennung'
-  })
-  for (const model of ['lettuce', 'rack-tier', 'tank', 'pump', 'air-handler', 'harvest-cart']) {
-    await expect.poll(() => localAssetStatuses[`/models/${model}.glb`], { message: `Lokales Blender-Modell ${model} muss erfolgreich laden` }).toBe(200)
-  }
-  await screenshot(page, 'desktop-erkunden')
-})
-
-await check('Kompakter Einstieg und Hintergrundthemen zeigen Details erst auf Anfrage', async () => {
-  await nav(page, 'Erkunden')
-  assert.equal(await page.locator('.render-archive[open]').count(), 0)
-  assert.equal(await page.locator('.knowledge-topic').count(), 4)
-  assert.equal(await page.locator('.knowledge-topic[open]').count(), 0)
-  const layout = await page.evaluate(() => ({
-    viewerTop: document.querySelector('.scene-shell').getBoundingClientRect().top + scrollY,
-    resultsTop: document.querySelector('.metrics').getBoundingClientRect().top + scrollY,
-    pageHeight: document.documentElement.scrollHeight,
-  }))
-  assert.ok(layout.viewerTop < 210, `Kompakte Navigation und Modellbeginn: ${layout.viewerTop}px`)
-  assert.ok(layout.resultsTop < 650, `Kennzahlen sollen im ersten Laptopbild sichtbar sein: ${layout.resultsTop}px`)
-  assert.ok(layout.pageHeight <= 1000, `Kompakte Erkundungsansicht: ${layout.pageHeight}px`)
-  report.initialLayout = layout
-  await openDetails(page.locator('.knowledge'))
-  const resources = page.locator('.knowledge-topic').filter({ has: page.locator('summary', { hasText: 'Ressourcen und Standort' }) })
-  await openDetails(resources)
-  await expect(resources.locator('.knowledge-facts dt')).toHaveCount(3)
-  await expect(resources).toContainText('Strom, Frischwasser, Nährsalze und Betriebsmittel')
-  await resources.locator(':scope > summary').click()
-  const climate = page.locator('.knowledge-topic').filter({ has: page.locator('summary', { hasText: 'Ist regionaler Salat automatisch klimafreundlicher?' }) })
-  await openDetails(climate)
-  await expect(climate.locator('.knowledge-research li')).toHaveCount(6)
-  await expect(climate).toContainText('Regionalität allein belegt keinen Klimavorteil')
-  await climate.locator(':scope > summary').click()
-  const data = page.locator('.knowledge-topic').filter({ has: page.locator('summary', { hasText: 'Was die Daten aus M3 belegen' }) })
-  await openDetails(data)
-  await expect(data.locator('.m3-chart')).toBeVisible()
-  await expect(data.locator('.m3-chart b')).toHaveText(['0,13', '0,08'])
-  await expect(data).toContainText('keine mittleren Energiebedarfe')
-  await data.locator(':scope > summary').click()
-  const terms = page.locator('.knowledge-topic').filter({ has: page.locator('summary', { hasText: /^Begriffe$/ }) })
-  await openDetails(terms)
-  await expect(terms.locator('.knowledge-facts dt')).toHaveCount(4)
-  await terms.locator(':scope > summary').click()
-  await page.locator('.knowledge > summary').click()
-  await nav(page, 'Vergleichen')
-  assert.equal(await page.locator('.page-heading').count(), 0, 'Vergleich erhält keinen zweiten sichtbaren globalen Hero')
-  await expect(page.locator('.compare-panel h2')).toHaveText('Anbau vergleichen')
-  await expect(page.locator('.comparison-data')).not.toHaveAttribute('open')
-  await page.locator('.comparison-data > summary').focus()
-  await page.keyboard.press('Enter')
-  await expect(page.locator('.comparison-table')).toBeVisible()
-  await nav(page, 'Entscheiden')
-  await expect(page.locator('.decision-priorities')).not.toHaveAttribute('open')
-  await expect(page.locator('.decision-criteria')).not.toHaveAttribute('open')
-  await expect(page.locator('.decision-recommendation')).not.toHaveAttribute('open')
-  await nav(page, 'Erkunden')
-})
-
-await check('Szenarien zeigen ausschließlich Vertical Farming; Erkunden behält seine Modellauswahl', async () => {
-  for (const [label, system] of [['Gewächshaus', 'greenhouse'], ['Freiland', 'field']]) {
-    await nav(page, 'Erkunden')
-    await page.locator('.system-switch').getByRole('button', { name: new RegExp(label) }).click()
-    await expect(page.getByTestId('scene')).toHaveAttribute('data-system', system)
-    await nav(page, 'Szenarien')
-    await expect(page.locator('.system-switch')).toHaveCount(0)
-    await expect(page.locator('.scenario-model-label')).toContainText('Vertical Farm')
-    await expect(page.getByTestId('scene')).toHaveAttribute('data-system', 'vertical')
-    await page.getByTestId('preset').selectOption('levels')
-    await expect(page.getByTestId('scene')).toHaveAttribute('data-levels', '6')
-    await expect(page.getByTestId('harvest')).toContainText('234')
-    await nav(page, 'Erkunden')
-    await expect(page.getByTestId('scene')).toHaveAttribute('data-system', system)
-  }
-  await nav(page, 'Szenarien')
-  await page.getByRole('button', { name: 'Basis vollständig wiederherstellen' }).click()
-})
-
-await check('Strompreis ändert Kosten, weder Ernte noch Energie', async () => {
-  await nav(page, 'Szenarien')
-  const before = { harvest: await page.getByTestId('harvest').innerText(), energy: await page.getByTestId('energy').innerText() }
-  await page.getByTestId('preset').selectOption('price')
-  assert.equal(await page.getByTestId('harvest').innerText(), before.harvest)
-  assert.equal(await page.getByTestId('energy').innerText(), before.energy)
-  assert.match(await page.getByTestId('cost').innerText(), /624/)
-})
-
-await check('Ebenen verändern Geometrieparameter und Kennzahlen; Tastatur und vollständiger Reset', async () => {
-  await page.getByTestId('preset').selectOption('levels')
-  assert.equal(await page.getByTestId('scene').getAttribute('data-levels'), '6')
-  assert.match(await page.getByTestId('harvest').innerText(), /234/)
-  assert.equal(await page.getByTestId('param-electricityPrice').inputValue(), '0.25')
-  await page.getByTestId('param-levels').focus()
-  await page.keyboard.press('End')
-  assert.equal(await page.getByTestId('scene').getAttribute('data-levels'), '10')
-  assert.match(await page.getByTestId('harvest').innerText(), /390/)
-  await page.getByRole('button', { name: 'Basis vollständig wiederherstellen' }).click()
-  assert.equal(await page.getByTestId('scene').getAttribute('data-levels'), '4')
-  assert.equal(await page.getByTestId('param-electricityPrice').inputValue(), '0.25')
-  assert.match(await page.getByTestId('cost').innerText(), /390/)
-  await screenshot(page, 'desktop-szenarien')
-})
-
-await check('Anderer Emissionsfaktor verändert keine Produktion', async () => {
-  const harvest = await page.getByTestId('harvest').innerText()
-  const cost = await page.getByTestId('cost').innerText()
-  await page.getByTestId('preset').selectOption('power')
-  assert.equal(await page.getByTestId('harvest').innerText(), harvest)
-  assert.equal(await page.getByTestId('cost').innerText(), cost)
-  assert.match(await page.locator('.emission-result').innerText(), /78/)
-  await page.getByRole('button', { name: 'Basis vollständig wiederherstellen' }).click()
-})
-
-await check('Parameterhilfen sind erreichbar und Sensitivität trennt Energie, Ertrag und Strompreis', async () => {
-  await openDetails(page.locator('.sensitivity-section'))
-  const help = page.getByTestId('param-levels').locator('..').locator('.parameter-help')
-  assert.equal(await help.getAttribute('open'), null)
-  await help.locator('summary').click()
-  assert.equal(await help.locator('small').isVisible(), true)
-  await help.getByRole('button', { name: 'Beleg / Annahme öffnen', exact: true }).click()
-  await expect(page.getByRole('dialog')).toBeVisible()
-  assert.match(await page.getByRole('dialog').innerText(), /keine Kalibrierung|keine.*Kalibrierung/i)
-  await page.keyboard.press('Escape')
-  await help.locator('summary').click()
-  const table = page.locator('.sensitivity table')
-  const rowValues = label => table.locator('tbody tr').filter({ hasText: label }).locator('td').allTextContents()
-  assert.deepEqual(await rowValues('Ernte · t/a'), ['156', '156', '156'])
-  assert.deepEqual(await rowValues('Stromkosten · Tsd. €/a'), ['312', '390', '468'])
-  assert.deepEqual(await rowValues('Strombeitrag · t CO₂eq/a'), ['506,7', '633,4', '760'])
-  await page.locator('#sensitivity-key').selectOption('electricityPrice')
-  assert.deepEqual(await rowValues('Ernte · t/a'), ['156', '156', '156'])
-  assert.deepEqual(await rowValues('Stromkosten · Tsd. €/a'), ['312', '390', '468'])
-  assert.deepEqual(await rowValues('Strombeitrag · t CO₂eq/a'), ['633,4', '633,4', '633,4'])
-  await page.locator('#sensitivity-key').selectOption('yieldPerArea')
-  assert.deepEqual(await rowValues('Ernte · t/a'), ['124,8', '156', '187,2'])
-  assert.deepEqual(await rowValues('Stromkosten · Tsd. €/a'), ['312', '390', '468'])
-  // Sensitivity is an exploration; it must not mutate the actual scenario.
-  assert.equal(await page.getByTestId('param-energyPerKg').inputValue(), '10')
-  assert.match(await page.getByTestId('harvest').innerText(), /156/)
-  await screenshot(page, 'sensitivitaet')
-})
-
-await check('Vergleich: gleiche Fläche und gleiche Ernte, echte Datenlücken', async () => {
-  await nav(page, 'Vergleichen')
-  await assertCommonAreaScale(page, [1000, 1000, 1000])
-  const areaRow = page.locator('.comparison-table tbody tr').filter({ hasText: 'Grundfläche · m²' })
-  assert.deepEqual(await areaRow.locator('td').allTextContents(), ['1.000', '1.000', '1.000'])
-  const energyRow = page.locator('.comparison-table tbody tr').filter({ hasText: 'Energie · kWh/a' })
-  assert.deepEqual(await energyRow.locator('td').allTextContents(), ['1.560.000 kWh', 'Datenlücke', 'Datenlücke'])
-  await page.getByRole('button', { name: 'Gleiche Jahresernte', exact: true }).click()
-  const harvestRow = page.locator('.comparison-table tbody tr').filter({ hasText: 'Salatfrischmasse · kg/a' })
-  assert.deepEqual(await harvestRow.locator('td').allTextContents(), ['156.000', '156.000', '156.000'])
-  assert.deepEqual(await areaRow.locator('td').allTextContents(), ['1.000', '5.370', '17.528'])
-  await assertCommonAreaScale(page)
-  await screenshot(page, 'desktop-vergleichen')
-})
-
-await check('Detaillierte 3D-Modelle und der Maßstab rechts unten folgen aktuellen Szenarien', async () => {
-  const canvas = page.locator('.comparison-stage canvas')
+await check('Standort zeigt ein lokales Renderbild und lädt WebGL auf Anfrage', async () => {
+  await nav(page, 'Standort')
+  await expect(page.locator('.atlas-model-picture img')).toHaveAttribute('src', './renders/vertical-farm-poster.webp')
+  await expect(page.locator('canvas')).toHaveCount(0)
+  await expect(page.locator('.atlas-land-key')).toContainText('1.000 → 2.600 m²')
+  await page.locator('.atlas-notes').getByRole('button', { name: 'Wasser' }).click()
+  await expect(page.getByRole('heading', { name: 'Ein Kreislauf mit Zuflüssen' })).toBeVisible()
+  await screenshot(page, 'desktop-standort')
+  await page.getByRole('button', { name: '3D öffnen', exact: true }).click()
+  const canvas = page.locator('canvas')
   await expect(canvas).toBeVisible()
-  await expect(page.locator('.comparison-scene')).toHaveAttribute('data-ready', 'true')
-  assert.ok(await canvas.evaluate(element => Boolean(element.getContext('webgl2') || element.getContext('webgl'))))
-  const groundSizes = JSON.parse(await page.locator('.comparison-scene').getAttribute('data-world-footprints'))
-  const expectedAreas = [1000, 156000 / 29.05, 156000 / 8.9]
-  groundSizes.forEach((ground, index) => assert.ok(Math.abs(ground.width * ground.depth - expectedAreas[index]) < expectedAreas[index] * 1e-6, 'Tatsächliche 3D-Meshflächen entsprechen denselben Referenzflächen'))
-  await expect(page.locator('.comparison-model-label')).toHaveCount(3)
-  await expect(page.locator('.comparison-values')).toContainText('17.528 m²')
-  await screenshot(page, 'vergleich-3d-basis')
-  await nav(page, 'Szenarien')
-  await page.getByTestId('preset').selectOption('levels')
-  await nav(page, 'Vergleichen')
-  await page.getByRole('button', { name: 'Gleiche Jahresernte', exact: true }).click()
-  await assertCommonAreaScale(page, [1000, 234000 / 29.05, 234000 / 8.9])
-  await expect(page.locator('.comparison-values')).toContainText('234')
-  for (let i = 0; i < 2; i++) {
-    await page.getByRole('button', { name: 'Gleiche Grundfläche', exact: true }).click()
-    await assertCommonAreaScale(page, [1000, 1000, 1000])
-    await page.getByRole('button', { name: 'Gleiche Jahresernte', exact: true }).click()
-    await assertCommonAreaScale(page, [1000, 234000 / 29.05, 234000 / 8.9])
+  assert.ok(await canvas.evaluate(element => !!element.getContext('webgl2')), 'WebGL-Modell muss verfügbar sein')
+  for (const model of ['lettuce', 'rack-tier', 'tank', 'pump', 'air-handler', 'harvest-cart']) {
+    await expect.poll(() => localAssetStatuses[`/models/${model}.glb`]).toBe(200)
   }
-  await nav(page, 'Szenarien')
-  await page.getByRole('button', { name: 'Basis vollständig wiederherstellen' }).click()
-  await nav(page, 'Vergleichen')
+})
+
+await check('Vergleich zeigt bei gleicher Ernte maßstäbliche 2D-Flächen und echte Datenlücken', async () => {
+  await nav(page, 'Vergleich')
+  const graphic = page.getByTestId('comparison-graphic')
+  await expect(graphic.locator('.atlas-comparison-label strong')).toHaveText(['1.000 m²', '5.370 m²', '17.528 m²'])
+  await expect(page.locator('canvas')).toHaveCount(0)
+  const squareWidths = await graphic.locator('.atlas-square-frame > div').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width))
+  assert.ok(Math.abs((squareWidths[0] / squareWidths[2]) ** 2 - 1000 / (156000 / 8.9)) < .003)
+  await screenshot(page, 'desktop-vergleich')
+  await page.getByRole('button', { name: 'Gleiche Grundfläche' }).click()
+  await expect(graphic.locator('.atlas-comparison-label strong')).toHaveText(['156 t/Jahr', '29,1 t/Jahr', '8,9 t/Jahr'])
+  await openDetails(page.locator('.comparison-data'))
+  await expect(page.locator('.comparison-table tr').filter({ hasText: 'Energie · kWh/Jahr' }).getByText('Datenlücke')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Gleiche Jahresernte' }).click()
+  await openDetails(page.locator('.atlas-compare-3d'))
+  await assertCommonAreaScale(page)
+})
+
+await check('Szenarien, Klimatest und Reset ändern nur die vorgesehenen Eingaben', async () => {
+  await nav(page, 'Vergleich')
+  const preset = page.getByTestId('preset')
+  const harvest = page.getByTestId('harvest')
+  const energy = page.getByTestId('energy')
+  const climate = page.locator('.atlas-climate')
+  await preset.selectOption('levels')
+  await expect(harvest).toContainText('234')
+  await expect(energy).toContainText('2.340')
+  await page.getByRole('button', { name: 'Strommix testen' }).click()
+  await expect(harvest).toContainText('234')
+  await expect(energy).toContainText('2.340')
+  await expect(climate).toContainText('0,5 kg CO₂eq/kg')
+  await preset.selectOption('price')
+  await expect(harvest).toContainText('156')
+  await expect(energy).toContainText('1.560')
+  await expect(page.getByTestId('cost')).toContainText('4 €/kg')
+  await page.getByRole('button', { name: 'Basisszenario wiederherstellen' }).click()
+  await expect(page.getByTestId('cost')).toContainText('2,5 €/kg')
+  await expect(climate).toContainText('4,06 kg CO₂eq/kg')
+  await openDetails(page.locator('.atlas-research'))
+  await expect(page.locator('.atlas-research li')).toHaveCount(6)
+  await openDetails(page.locator('.atlas-evidence'))
+  await expect(page.locator('.m3-chart b')).toHaveText(['0,13', '0,08'])
 })
 
 await check('Quellendialog: Original-URLs, Fundstellen und Escape-Taste', async () => {
-  await page.locator('.header-actions').getByRole('button', { name: 'Belege', exact: true }).click()
+  await page.locator('.atlas-actions').getByRole('button', { name: 'Quellen', exact: true }).click()
   const dialog = page.getByRole('dialog')
   assert.ok(await dialog.isVisible())
   const urls = await dialog.locator('a[href]').evaluateAll(links => links.map(link => link.href))
@@ -302,9 +169,9 @@ await check('Quellendialog: Original-URLs, Fundstellen und Escape-Taste', async 
 })
 
 await check('Strukturiertes Datenverzeichnis exportiert Quellen, Metadaten und aktuellen Szenariostand lokal', async () => {
-  await nav(page, 'Szenarien')
+  await nav(page, 'Vergleich')
   await page.getByTestId('preset').selectOption('price')
-  await page.locator('.header-actions').getByRole('button', { name: 'Belege', exact: true }).click()
+  await page.locator('.atlas-actions').getByRole('button', { name: 'Quellen', exact: true }).click()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Strukturiertes Datenverzeichnis speichern', exact: true }).click()
   const download = await downloadPromise
@@ -320,14 +187,13 @@ await check('Strukturiertes Datenverzeichnis exportiert Quellen, Metadaten und a
   assert.ok(downloaded.data.every(datum => downloaded.sources.some(source => source.id === datum.sourceId)))
   assert.equal(downloaded.results.electricityCost.unit, '€/Jahr')
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Basis vollständig wiederherstellen' }).click()
+  await page.getByRole('button', { name: 'Basisszenario wiederherstellen' }).click()
 })
 
 await check('Entscheidung: zwei Prioritäten, persistente Bearbeitung und Exportvalidierung', async () => {
-  await nav(page, 'Entscheiden')
+  await nav(page, 'Entscheidung')
   await openDetails(page.locator('.decision-priorities'))
-  await openDetails(page.locator('.decision-recommendation'))
-  const exportButton = page.getByRole('button', { name: 'Decision Brief als PDF drucken', exact: true })
+  const exportButton = page.getByRole('button', { name: 'PDF drucken', exact: true })
   await expect(exportButton).toBeEnabled()
   assert.equal(await page.locator('.priority-choices input:checked').count(), 2)
   const checkbox = page.locator('.priority-choices input').nth(1)
@@ -339,11 +205,10 @@ await check('Entscheidung: zwei Prioritäten, persistente Bearbeitung und Export
   const originalRecommendation = await recommendation.inputValue()
   const revised = 'Die Stadt sollte ein offenes Pilotprojekt mit belegten Abnehmern fördern.'
   await recommendation.fill(revised)
-  await nav(page, 'Erkunden')
-  await nav(page, 'Entscheiden')
+  await nav(page, 'Standort')
+  await nav(page, 'Entscheidung')
   assert.equal(await recommendation.inputValue(), revised)
   await openDetails(page.locator('.decision-priorities'))
-  await openDetails(page.locator('.decision-recommendation'))
   await recommendation.fill(originalRecommendation)
   const reason = page.locator('.decision-field').filter({ hasText: /^Warum diese beiden\?/ }).locator('textarea')
   const originalReason = await reason.inputValue()
@@ -356,12 +221,12 @@ await check('Entscheidung: zwei Prioritäten, persistente Bearbeitung und Export
   await recommendation.fill(originalRecommendation)
   await screenshot(page, 'desktop-entscheiden')
   await page.reload({ waitUntil: 'networkidle' })
-  await nav(page, 'Entscheiden')
+  await nav(page, 'Entscheidung')
   assert.equal(await recommendation.inputValue(), originalRecommendation)
 })
 
 await check('Quellenwechsel am Kriterium aktualisiert Beleg, Brief und Speicherung ohne eigene Aussage zu ersetzen', async () => {
-  await nav(page, 'Entscheiden')
+  await nav(page, 'Entscheidung')
   await openDetails(page.locator('.decision-criteria'))
   const criterion = page.locator('.criterion-editor').filter({ has: page.locator('#source-environment') })
   const sourceSelect = criterion.locator('#source-environment')
@@ -393,15 +258,15 @@ await check('Quellenwechsel am Kriterium aktualisiert Beleg, Brief und Speicheru
     await expect(selectedSourceDialog).toContainText('The embodied carbon emissions of lettuce production')
     await expect(selectedSourceDialog.locator('.source-card')).toHaveAttribute('open', '')
     await page.keyboard.press('Escape')
-    await nav(page, 'Szenarien')
-    await nav(page, 'Entscheiden')
+    await nav(page, 'Vergleich')
+    await nav(page, 'Entscheidung')
     await openDetails(page.locator('.decision-criteria'))
     assert.equal(await sourceSelect.inputValue(), 'blom2022')
     assert.equal(await evidence.inputValue(), statement)
     await openDetails(criterion.locator('.criterion-reference-detail'))
     await expect(reference).toContainText('[B] Blom et al. 2022')
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await nav(page, 'Entscheiden')
+    await nav(page, 'Entscheidung')
     await openDetails(page.locator('.decision-criteria'))
     assert.equal(await sourceSelect.inputValue(), 'blom2022')
     assert.equal(await evidence.inputValue(), statement)
@@ -414,8 +279,7 @@ await check('Quellenwechsel am Kriterium aktualisiert Beleg, Brief und Speicheru
     assert.equal(await evidence.inputValue(), statement)
     await expect(briefEnvironment).toContainText('Die Umweltwirkung hängt vom Vergleichssystem ab [R].')
     await expect(bibliography).toContainText('[R] BLE / BZL 2026')
-    await expect(bibliography).not.toContainText('[B]')
-    await expect(bibliography).not.toContainText('Blom et al.')
+    await expect(bibliography).toContainText('[B] Blom et al.')
     await screenshot(page, 'quellenwechsel')
   } finally {
     const resetSection = page.locator('.decision-details').filter({ has: page.locator('summary', { hasText: 'Name, Datum und Beispiel zurücksetzen' }) })
@@ -426,60 +290,42 @@ await check('Quellenwechsel am Kriterium aktualisiert Beleg, Brief und Speicheru
   }
 })
 
-await check('Aktuelles Drucklayout wird unabhängig vom Wortlimit auf A4-Passung geprüft', async () => {
-  await openDetails(page.locator('.decision-criteria'))
-  const exportButton = page.getByRole('button', { name: 'Decision Brief als PDF drucken', exact: true })
+await check('Einseitiger Brief übernimmt den Flächenvergleich und zählt sein Drucklayout', async () => {
+  await nav(page, 'Vergleich')
+  await page.getByTestId('preset').selectOption('levels')
+  await nav(page, 'Entscheidung')
+  const exportButton = page.getByRole('button', { name: 'PDF drucken', exact: true })
   await expect(exportButton).toBeEnabled()
   const height = Number(await page.locator('.decision-panel').getAttribute('data-print-height'))
-  assert.ok(height > 0 && height <= 273 * 96 / 25.4, `Basisbrief ${height}px muss in den A4-Inhaltsbereich passen`)
-  const liveWords = Number((await page.locator('.brief-count strong').innerText()).split(' / ')[0])
+  assert.ok(height > 0 && height <= 273 * 96 / 25.4)
+  const liveWords = Number((await page.locator('.atlas-preview-header span').innerText()).split(' / ')[0])
   await page.emulateMedia({ media: 'print' })
-  const printed = await page.locator('#decision-brief').innerText()
-  const domWords = printed.trim().split(/\s+/u).length
-  assert.ok(domWords <= 450, `Auch der sichtbare Drucktext enthält höchstens450Wörter (${domWords})`)
-  assert.equal(domWords, liveWords, 'Wortzähler muss alle tatsächlichen Drucktexte berücksichtigen')
+  const brief = page.locator('#decision-brief')
+  await expect(brief).toContainText('m² für 234 t Salat/Jahr')
+  await expect(brief.locator('.brief-chart-row strong')).toHaveText(['1.000', '8.055', '26.292'])
+  const visibleWords = (await brief.innerText()).trim().split(/\s+/u).length
+  assert.equal(visibleWords, liveWords)
+  assert.ok(visibleWords <= 450)
+  await page.pdf({ path: `${output}/browser-decision-brief.pdf`, preferCSSPageSize: true, printBackground: true })
   await page.emulateMedia({ media: 'screen' })
-  report.printLayout = { measuredHeightCssPx: height, availableHeightCssPx: 273 * 96 / 25.4, liveWords, domWords }
-  const evidence = page.getByRole('textbox', { name: 'Beleg für Gesellschaft', exact: true })
-  const original = await evidence.inputValue()
-  // One long word stays below450words but wraps over several lines in the narrow criterion column.
-  try {
-    await evidence.fill('W'.repeat(180))
-    await expect.poll(async () => Number(await page.locator('.decision-panel').getAttribute('data-print-height'))).toBeGreaterThan(273 * 96 / 25.4)
-    assert.ok(Number((await page.locator('.brief-count strong').innerText()).split(' / ')[0]) < 450)
-    await expect(exportButton).toBeDisabled()
-    await expect(page.getByText('Der Text passt nicht auf eine A4-Seite. Bitte kürzen.', { exact: true })).toBeVisible()
-  } finally { await evidence.fill(original) }
-  await expect(exportButton).toBeEnabled()
+  await nav(page, 'Vergleich')
+  await page.getByRole('button', { name: 'Basisszenario wiederherstellen' }).click()
 })
 
-await check('Aktuelle Parameter und Ergebnisse werden in den Brief übernommen', async () => {
-  await nav(page, 'Szenarien')
-  await page.getByTestId('preset').selectOption('levels')
-  assert.match(await page.getByTestId('harvest').innerText(), /234/)
-  await nav(page, 'Entscheiden')
-  const brief = await page.locator('#decision-brief').textContent()
-  assert.match(brief, /234/)
-  assert.match(brief, /3\.900/)
-  assert.match(brief, /6 Ebenen/)
-  assert.match(brief, /2\.340/)
-  await nav(page, 'Szenarien')
-  await page.getByRole('button', { name: 'Basis vollständig wiederherstellen' }).click()
-})
-
-await check('Vortragsmodus mit sechs vollständigen Schritten', async () => {
+await check('Vortragsmodus führt in sechs Schritten über die drei Ansichten', async () => {
   await page.getByRole('button', { name: 'Vortrag starten', exact: true }).click()
-  const expected = ['Die Frage der Stadt', 'So funktioniert die Farm', 'Eine faire Bezugsgröße', 'Was ändert das Ergebnis?', 'Wer trägt Nutzen und Risiko?', 'Eine überprüfbare Empfehlung']
+  const expected = ['Standort', 'Standort', 'Vergleich', 'Vergleich', 'Entscheidung', 'Entscheidung']
   for (let i = 0; i < expected.length; i++) {
-    assert.equal(await page.locator('.tour-note strong').innerText(), expected[i])
-    if (i < expected.length - 1) await page.locator('.tour-bar').getByRole('button', { name: 'Weiter', exact: true }).click()
+    await expect(page.locator('.atlas-tour > b')).toHaveText(`${i + 1} / 6`)
+    await expect(page.getByRole('navigation', { name: 'Bereiche' }).getByRole('button', { name: expected[i], exact: true })).toHaveAttribute('aria-current', 'page')
+    if (i < expected.length - 1) await page.getByRole('button', { name: 'Weiter', exact: true }).click()
   }
-  await page.locator('.tour-bar').getByRole('button', { name: 'Vortrag abschließen', exact: true }).click()
-  assert.equal(await page.locator('.tour-note').count(), 0)
+  await page.getByRole('button', { name: 'Abschließen', exact: true }).click()
+  await expect(page.locator('.atlas-tour')).toHaveCount(0)
 })
 
 await check('Lokale Blender-Galerie zeigt vier Bilder mit 2048 × 1408 Pixeln; Großansicht, Pfeiltasten und Escape funktionieren', async () => {
-  await nav(page, 'Erkunden')
+  await nav(page, 'Standort')
   await openDetails(page.locator('.render-archive'))
   const gallery = page.locator('.render-gallery')
   const galleryImage = gallery.locator('figure img')
@@ -549,20 +395,18 @@ await check('Tablet und Smartphone: alle Bereiche ohne Seitenüberlauf, Touchbed
     const responsive = await context({ viewport: { width, height }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 })
     const rp = await responsive.newPage()
     await load(rp)
-    for (const tab of ['Erkunden', 'Szenarien', 'Vergleichen', 'Entscheiden']) {
-      await rp.locator('.main-nav').getByRole('button', { name: new RegExp(tab) }).tap()
+    for (const tab of ['Standort', 'Vergleich', 'Entscheidung']) {
+      await nav(rp, tab)
       const sizes = await rp.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }))
       assert.ok(sizes.scroll <= sizes.client + 1, `${name}/${tab}: Seitenüberlauf ${sizes.scroll} > ${sizes.client}`)
       await screenshot(rp, `${name}-${tab.toLowerCase()}`)
-      if (tab === 'Vergleichen') {
-        await rp.getByRole('button', { name: 'Gleiche Jahresernte', exact: true }).tap()
-        await assertCommonAreaScale(rp)
-        await screenshot(rp, `${name}-flaechenmassstab`)
-      }
     }
-    await nav(rp, 'Erkunden')
-    await rp.locator('.part-buttons').getByRole('button', { name: 'Ein Kreislauf mit Zuflüssen', exact: true }).tap()
-    assert.equal(await rp.locator('.part-copy h2').innerText(), 'Ein Kreislauf mit Zuflüssen')
+    await expect(rp.locator('.atlas-paper')).not.toBeVisible()
+    await rp.getByRole('button', { name: 'Vorschau öffnen' }).tap()
+    await expect(rp.locator('.atlas-paper')).toBeVisible()
+    await nav(rp, 'Standort')
+    await rp.locator('.atlas-parts').getByRole('button', { name: 'Wasser', exact: true }).tap()
+    await expect(rp.getByRole('heading', { name: 'Ein Kreislauf mit Zuflüssen' })).toBeVisible()
     await openDetails(rp.locator('.render-archive'))
     await rp.locator('.render-image-button').tap()
     await expect(rp.locator('.render-dialog')).toBeVisible()
@@ -577,12 +421,13 @@ await check('Reduzierte Bewegung und technische Ersatzansicht', async () => {
   const rp = await reduced.newPage()
   await load(rp)
   assert.equal(await rp.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches), true)
-  await rp.locator('.select-compact').filter({ hasText: /^Grafik/ }).locator('select').selectOption('fallback')
+  await rp.getByRole('button', { name: '3D öffnen', exact: true }).click()
+  await rp.getByLabel('Grafik', { exact: true }).selectOption('fallback')
   assert.ok(await rp.locator('.scene-fallback').isVisible())
   assert.equal(await rp.locator('canvas').count(), 0)
-  await rp.locator('.system-switch').getByRole('button', { name: /Gewächshaus/ }).click()
+  await rp.locator('.atlas-site-grid').getByRole('button', { name: /Gewächshaus/ }).click()
   assert.equal(await rp.getByTestId('scene').getAttribute('data-system'), 'greenhouse')
-  await rp.locator('.system-switch').getByRole('button', { name: /Freiland/ }).click()
+  await rp.locator('.atlas-site-grid').getByRole('button', { name: /Freiland/ }).click()
   assert.equal(await rp.getByTestId('scene').getAttribute('data-system'), 'field')
   await screenshot(rp, 'ersatzschema')
   await reduced.close()

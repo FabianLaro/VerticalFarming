@@ -4,10 +4,5 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: './',
-  build: {
-    target: 'es2022',
-    rolldownOptions: {
-      output: { codeSplitting: { groups: [{ name: 'scene', test: /three|react-three|three-stdlib/ }] } },
-    },
-  },
+  build: { target: 'es2022' },
 })

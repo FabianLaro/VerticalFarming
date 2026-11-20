@@ -15,6 +15,7 @@ export interface DecisionState {
   option: 'A' | 'B' | 'C'
   names: string
   date: string
+  goal: string
   recommendation: string
   conditions: [string, string]
   priorities: CriterionId[]
@@ -39,10 +40,11 @@ export const INITIAL_DECISION: DecisionState = {
   option: 'B',
   names: 'Projektgruppe Q1 (Namen ergänzen)',
   date: '2026-11-16',
-  recommendation: 'Die Stadt sollte befristete Pilotförderung wählen, um Standortnutzen und Energiebedarf vor einem Ausbau zu prüfen.',
+  goal: 'Belastbare Betriebsdaten für eine mögliche regionale Salatversorgung öffentlicher Küchen gewinnen.',
+  recommendation: 'Dinslaken sollte einen befristeten Pilot fördern, um den Nutzen einer umgenutzten Halle und den Strombedarf zu prüfen.',
   conditions: [
-    'Vor Bewilligung müssen ein belastbares Stromkonzept und vertraglich belegte Abnehmer vorliegen.',
-    'Nach zwölf Monaten werden Ernte, Energie, Wasser und Vollkosten veröffentlicht; bei verfehlten vorab vereinbarten Zielen endet die Förderung.',
+    'Vor Bewilligung müssen Netzanschluss, Stromherkunft und die zugesagte Abnahmemenge einer öffentlichen Küche belegt sein.',
+    'Nach zwölf Monaten entscheidet die Stadt anhand vorab festgelegter Grenzwerte für Liefermenge, kWh/kg und Vollkosten/kg über die Fortsetzung.',
   ],
   priorities: ['environment', 'economy'],
   priorityReason: 'Umwelt schützt Klimaziele; Wirtschaftlichkeit begrenzt das Risiko öffentlicher Mittel.',
@@ -79,22 +81,27 @@ export function recommendationSentences(state: DecisionState): number {
   return text ? text.split(/[.!?]+(?:\s+|$)/u).filter(part => part.trim()).length : 0
 }
 
+function footprintComparison(input: Input, result: Result) {
+  const rows = compare(input, 'harvest', result.harvest)
+  return {
+    title: 'Grundfläche bei gleicher Jahresernte',
+    caption: `m² für ${number(result.harvest / 1000)} t Salat/Jahr · VF-Szenario 2040 [M], NL-Referenzen [B]`,
+    rows,
+    note: 'Direkte Grundfläche. Referenzjahre: Gewächshaus 2019, Freiland 1985/2009. Keine Standort- oder Ökobilanz.',
+  }
+}
+
 export function briefText(state: DecisionState, input: Input, result: Result): string {
-  const rows = compare(input, 'footprint', input.footprint)
+  const chart = footprintComparison(input, result)
   return [
     'STADTLABOR 2040 Decision Brief Soll Dinslaken Vertical Farming fördern?',
-    'Szenariomodell · Beispielposition, bearbeitbar', state.names, '·', dateLabel(state.date),
+    'Szenariomodell', state.names, '·', dateLabel(state.date),
+    'Öffentliches Ziel', state.goal,
     `${state.option} · ${OPTIONS.find(option => option.id === state.option)?.label}`,
     'Empfehlung und zwei Bedingungen', state.recommendation, ...state.conditions,
     'Drei Argumente dafür', ...state.pros, 'Drei Argumente dagegen', ...state.cons,
-    'Ernte bei gleicher Grundfläche', 'Salatfrischmasse · t/Jahr · Modell und NL-Referenzen [M,B]',
-    rows.map(row => `${row.label} ${number(row.harvest / 1000)}`).join(' '),
-    `Aktuell: ${number(input.footprint, 0)} m² Grundfläche · ${number(input.usable * 100, 0)} % Nutzanteil · ${input.levels} Ebenen · ${number(input.yieldPerArea)} kg/(m²·a).`,
-    `Anbaufläche ${number(result.cultivationArea, 0)} m²; Energie ${number(result.energy / 1000)} MWh/Jahr; Frischwasserzusatz im Anbau ${number(result.water / 1000)} m³/Jahr (${number(input.waterPerKg)} L/kg, Annahme), ohne Reinigung/Vorketten.`,
-    `Strom: ${number(input.energyPerKg)} kWh/kg · ${number(input.electricityPrice, 2)} €/kWh · ${number(input.gridFactor, 3)} kgCO₂eq/kWh.`,
-    'Modellenergie vollständig als Strom, inklusive Klima/Pumpen. Stromfaktor veränderbar; Basis 2025 geschätzt [U], keine Prognose.',
-    `Stromkosten ${number(result.electricityPerKg, 2)} €/kg; Strombeitrag ${number(result.emissionsPerKg, 2)} kgCO₂eq/kg.`,
-    'Aussage: mehr Anbaufläche kann mehr Ernte liefern. Grenze: konstante Ertragsannahme; keine Betriebsprognose, Vollkosten oder Gesamtklimabilanz.',
+    chart.title, chart.caption,
+    chart.rows.map(row => `${row.label} ${number(row.footprint, 0)}`).join(' '), chart.note,
     'Fünf Kriterien: Urteile, keine Messwerte',
     ...state.criteria.map(criterion => `${criterion.label} ${criterion.symbol} ${criterionEvidence(criterion)}`),
     '+ dafür · ± bedingt · − dagegen · ? Daten fehlen',
@@ -118,18 +125,19 @@ export interface BriefProps {
 }
 
 export function Brief({ state, input, result, valid }: BriefProps) {
-  const rows = compare(input, 'footprint', input.footprint)
-  const maxHarvest = Math.max(...rows.map(row => row.harvest), 1)
+  const chart = footprintComparison(input, result)
+  const maxFootprint = Math.max(...chart.rows.map(row => row.footprint), 1)
   return <article className="brief" id="decision-brief" aria-label="Druckbarer Decision Brief">
     <header className="brief-header">
       <div><span className="brief-brand">STADTLABOR 2040</span><span>Decision Brief</span></div>
       <p>{state.names} · {dateLabel(state.date)}</p>
     </header>
     <h1>Soll Dinslaken Vertical Farming fördern?</h1>
-    <p className="brief-model-label">Szenariomodell · Beispielposition, bearbeitbar</p>
+    <p className="brief-model-label">Szenariomodell</p>
     {!valid && <p className="brief-invalid">Noch nicht abgabefertig: Wort-, Satz- oder Prioritätenvorgabe prüfen.</p>}
     <section className="brief-recommendation">
       <h2>{state.option} · {OPTIONS.find(option => option.id === state.option)?.label}</h2>
+      <p><strong>Öffentliches Ziel</strong> {state.goal}</p>
       <h3>Empfehlung und zwei Bedingungen</h3>
       <p>{state.recommendation}</p>
       <ol>{state.conditions.map((condition, index) => <li key={index}>{condition}</li>)}</ol>
@@ -139,14 +147,9 @@ export function Brief({ state, input, result, valid }: BriefProps) {
       <section><h3>Drei Argumente dagegen</h3><ul>{state.cons.map((argument, index) => <li key={index}>{argument}</li>)}</ul></section>
     </div>
     <figure className="brief-chart">
-      <figcaption><strong>Ernte bei gleicher Grundfläche</strong><span>Salatfrischmasse · t/Jahr · Modell und NL-Referenzen [M,B]</span></figcaption>
-      {rows.map(row => <div key={row.system} className="brief-chart-row"><span>{row.label}</span><div><i style={{ width: `${row.harvest / maxHarvest * 100}%` }} /></div><strong>{number(row.harvest / 1000)}</strong></div>)}
-      <p>Aktuell: {number(input.footprint, 0)} m² Grundfläche · {number(input.usable * 100, 0)} % Nutzanteil · {input.levels} Ebenen · {number(input.yieldPerArea)} kg/(m²·a).</p>
-      <p>Anbaufläche {number(result.cultivationArea, 0)} m²; Energie {number(result.energy / 1000)} MWh/Jahr; Frischwasserzusatz im Anbau {number(result.water / 1000)} m³/Jahr ({number(input.waterPerKg)} L/kg, Annahme), ohne Reinigung/Vorketten.</p>
-      <p>Strom: {number(input.energyPerKg)} kWh/kg · {number(input.electricityPrice, 2)} €/kWh · {number(input.gridFactor, 3)} kgCO₂eq/kWh.</p>
-      <p>Modellenergie vollständig als Strom, inklusive Klima/Pumpen. Stromfaktor veränderbar; Basis 2025 geschätzt [U], keine Prognose.</p>
-      <p>Stromkosten {number(result.electricityPerKg, 2)} €/kg; Strombeitrag {number(result.emissionsPerKg, 2)} kgCO₂eq/kg.</p>
-      <p>Aussage: mehr Anbaufläche kann mehr Ernte liefern. Grenze: konstante Ertragsannahme; keine Betriebsprognose, Vollkosten oder Gesamtklimabilanz.</p>
+      <figcaption><strong>{chart.title}</strong><span>{chart.caption}</span></figcaption>
+      {chart.rows.map(row => <div key={row.system} className={`brief-chart-row atlas-system-${row.system}`}><span>{row.label}</span><div><i style={{ width: `${row.footprint / maxFootprint * 100}%` }} /></div><strong>{number(row.footprint, 0)}</strong></div>)}
+      <p>{chart.note}</p>
     </figure>
     <section className="brief-criteria-section">
       <h3>Fünf Kriterien: Urteile, keine Messwerte</h3>
