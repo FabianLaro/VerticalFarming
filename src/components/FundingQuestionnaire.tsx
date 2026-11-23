@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, Check, Circle, ClipboardText, FileText, Minus, X } from '@phosphor-icons/react'
-import { OPTIONS } from './Brief'
-import { editableAnswers, evaluateFunding, fundingAnswerLabel, fundingChecks, fundingQuestions, siteChecks } from '../lib/funding-questionnaire'
-import type { Answers, QuestionId } from '../lib/funding-questionnaire'
+import { INITIAL_DECISION, OPTIONS } from './Brief'
+import { editableAnswers, evaluateFunding, fundingAnswerLabel, fundingChecks, fundingQuestions, hasFundingPriorities, siteChecks } from '../lib/funding-questionnaire'
+import type { Answers, FundingReview, QuestionId } from '../lib/funding-questionnaire'
 import { BASE_INPUT } from '../lib/model'
 import type { Input, InputKey } from '../lib/model'
 import { number } from '../lib/format'
@@ -11,6 +12,9 @@ import './funding-questionnaire.css'
 
 type QuestionnaireProps = {
   answers: Answers
+  review: FundingReview
+  onReview: (values: Partial<FundingReview>) => void
+  optionComparison: ReactNode
   input: Input
   index: number
   onAnswer: (id: QuestionId, value: string | number | undefined) => void
@@ -43,15 +47,17 @@ function ModelComparison({ rows, unit }: { rows: { label: string; value: number 
   </dl>
 }
 
-export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, onGenerate, onManual, onUpdateScenario }: QuestionnaireProps) {
+export function FundingQuestionnaire({ answers, review, onReview, optionComparison, input, index, onAnswer, onGoTo, onGenerate, onManual, onUpdateScenario }: QuestionnaireProps) {
   const question = fundingQuestions[index]
   const last = index === fundingQuestions.length - 1
-  const firstIncomplete = fundingQuestions.findIndex(item => answers[item.id] === undefined)
+  const prioritiesReady = hasFundingPriorities(review)
+  const firstIncomplete = fundingQuestions.findIndex(item => answers[item.id] === undefined || (item.id === 'goal' && !prioritiesReady))
   const selected = answers[question.id]
+  const canContinue = selected !== undefined && (question.id !== 'goal' || prioritiesReady)
   const custom = Object.hasOwn(editableAnswers, question.id) ? editableAnswers[question.id as keyof typeof editableAnswers] : undefined
   const fields = fieldsByQuestion[question.id]
   const checks = question.id === 'cost' || question.id === 'climate' ? fundingChecks(answers, input) : null
-  const site = question.id === 'building' || question.id === 'power' || question.id === 'sales' ? siteChecks(answers, input) : null
+  const site = question.id === 'building' || question.id === 'power' || question.id === 'sales' ? siteChecks(answers, input, review.peakPower) : null
   const chosenBuyers = question.id === 'sales'
     ? fundingQuestions.find(item => item.id === 'demand')?.options.find(option => option.id === answers.demand)?.label
     : undefined
@@ -64,7 +70,7 @@ export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, 
   }, [index])
 
   function next() {
-    if (selected === undefined) return
+    if (!canContinue) return
     if (!last) onGoTo(index + 1)
     else if (firstIncomplete === -1) onGenerate()
     else onGoTo(firstIncomplete)
@@ -81,7 +87,7 @@ export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, 
     <div className="funding-question">
       <div className="funding-progress">
         <span>Frage {index + 1} von {fundingQuestions.length}</span>
-        <div aria-label="Frage auswählen">{fundingQuestions.map((item, position) => <button type="button" key={item.id} className={answers[item.id] !== undefined ? 'is-answered' : ''} disabled={firstIncomplete !== -1 && position > firstIncomplete} aria-current={position === index ? 'step' : undefined} aria-label={`Frage ${position + 1}: ${item.topic}`} onClick={() => onGoTo(position)} />)}</div>
+        <div aria-label="Frage auswählen">{fundingQuestions.map((item, position) => <button type="button" key={item.id} className={answers[item.id] !== undefined && (item.id !== 'goal' || prioritiesReady) ? 'is-answered' : ''} disabled={firstIncomplete !== -1 && position > firstIncomplete} aria-current={position === index ? 'step' : undefined} aria-label={`Frage ${position + 1}: ${item.topic}`} onClick={() => onGoTo(position)} />)}</div>
       </div>
       <p className="funding-topic">{question.topic}</p>
       <h2 id="funding-question-title" ref={heading} tabIndex={-1}>{question.statement}</h2>
@@ -99,7 +105,7 @@ export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, 
             { label: 'Durchschnittliche Leistung der Farm', value: site.averagePower },
             ...(site.connection === null ? [] : [{ label: 'Dein Beispielanschluss', value: site.connection }]),
           ]} />
-          <p>Wenn viele Geräte gleichzeitig laufen, kann die Farm mehr Strom als im Durchschnitt brauchen.</p>
+          <p>Für den Netzanschluss zählt die höchste gleichzeitige Leistung von Licht, Klimatisierung und Pumpen. Gib einen Wert aus dem Planspiel ein, wenn er bekannt ist.</p>
         </> : <>
           {chosenBuyers && <p>Kunden im Beispiel: {answers.demand === 'unknown' ? 'noch offen' : chosenBuyers}</p>}
           <ModelComparison unit="kg/Woche" rows={[
@@ -126,6 +132,25 @@ export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, 
           onAnswer(question.id, option.id)
         }}>{question.id === 'goal' ? <span className="funding-goal-dot" aria-hidden="true" /> : <Icon size={21} weight="bold" aria-hidden="true" />}{option.label}</button>
       })}</div>
+      {question.id === 'goal' && selected && <>
+        {optionComparison}
+        <fieldset className="funding-priorities">
+          <legend>Zwei wichtigste Kriterien</legend>
+          <p>Wähle die Kriterien für dein Förderziel und begründe die Auswahl vor der Empfehlung.</p>
+          <div className="priority-choices">{INITIAL_DECISION.criteria.map(({ id, label }) => {
+            const checked = review.priorities.includes(id)
+            return <label className={checked ? 'priority-choice chosen' : 'priority-choice'} key={id}>
+              <input type="checkbox" checked={checked} disabled={!checked && review.priorities.length === 2}
+                onChange={() => onReview({ priorities: checked ? review.priorities.filter(value => value !== id) : [...review.priorities, id] })} />
+              <span>{label}</span>
+            </label>
+          })}</div>
+          <label className="decision-field">Warum diese beiden?
+            <textarea rows={2} maxLength={180} value={review.priorityReason}
+              onChange={event => onReview({ priorityReason: event.target.value })} />
+          </label>
+        </fieldset>
+      </>}
       {custom && <label className="funding-custom-value" key={question.id}>
         <span>{custom.label} ({custom.unit})</span>
         <input type="number" ref={numericInput} min={custom.min} max={Number.MAX_SAFE_INTEGER} step="any" inputMode="decimal" placeholder="Wert eingeben" defaultValue={typeof selected === 'number' ? selected : ''} onChange={event => {
@@ -133,16 +158,44 @@ export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, 
           onAnswer(question.id, field.value && field.validity.valid ? field.valueAsNumber : undefined)
         }} />
       </label>}
+      {question.id === 'power' && <label className="funding-custom-value">
+        <span>Spitzenlast im Planspiel (kW)</span>
+        <input type="number" step="any" min="0" max={Number.MAX_SAFE_INTEGER} inputMode="decimal" placeholder="Noch offen" value={review.peakPower ?? ''}
+          onChange={event => onReview({ peakPower: event.currentTarget.validity.valid && event.currentTarget.valueAsNumber > 0 ? event.currentTarget.valueAsNumber : undefined })} />
+      </label>}
       {question.id === 'climate' && selected === 'custom' && checks && <div className="funding-model-note">
         <ScenarioControl field="gridFactor" input={input} update={onUpdateScenario} label={fieldLabels.gridFactor} />
         <p role="status"><strong>{number(checks.customEmissions, 3)} kg CO₂eq/kg</strong> mit deinem Strommix</p>
       </div>}
+      {question.id === 'climate' && selected && <fieldset className="funding-priorities">
+        <legend>Vergleichbare Klimabilanz im Planspiel</legend>
+        <p>Für das Förderurteil zählt die ganze Lieferkette. Vergleiche dieselbe Salatmenge, Saison und Bilanzgrenze. Ohne Beleg bleibt der Nachweis offen.</p>
+        <label className="decision-field">Ergebnis der Klimaprüfung
+          <select value={review.climateResult ?? ''} onChange={event => {
+            const value = event.target.value
+            onReview({ climateResult: value === 'meets' || value === 'misses' ? value : undefined, climateEvidence: '' })
+          }}>
+            <option value="">Noch offen</option>
+            <option value="meets">Klimaziel erreicht</option>
+            <option value="misses">Klimaziel verfehlt</option>
+          </select>
+        </label>
+        {review.climateResult && <label className="decision-field">Prüfwert und Beleg aus dem Planspiel
+          <input type="text" maxLength={100} value={review.climateEvidence} onChange={event => onReview({ climateEvidence: event.target.value })} />
+        </label>}
+      </fieldset>}
       {question.id === 'building' && site && site.hall !== null && <p className="funding-limit-feedback" role="status">{site.hallTooSmall
         ? `Die Halle ist ${number(input.footprint - site.hall, 1)} m² zu klein für diese Farm.`
         : 'Die Grundfläche reicht im Modell. Hallenhöhe und Anschlüsse musst du vor Ort prüfen.'}</p>}
       {question.id === 'power' && site && site.connection !== null && <p className="funding-limit-feedback" role="status">{site.connectionTooWeak
         ? 'Der Anschluss reicht schon für den durchschnittlichen Bedarf nicht aus.'
-        : 'Der Anschluss reicht im Durchschnitt. Prüfe noch den höchsten gleichzeitigen Strombedarf.'}</p>}
+        : site.peakTooHigh
+          ? 'Die Spitzenlast übersteigt den Anschluss.'
+          : site.peakPower !== null
+            ? 'Der Anschluss deckt die angegebene Spitzenlast im Planspiel.'
+            : review.peakPower !== undefined
+              ? 'Die Spitzenlast muss mindestens so hoch wie der Durchschnitt sein.'
+              : 'Der Anschluss reicht im Durchschnitt. Prüfe noch den höchsten gleichzeitigen Strombedarf.'}</p>}
       {question.id === 'demand' && selected && <p className="funding-limit-feedback" role="status">{selected === 'unknown'
         ? 'Du kannst die Mengen im nächsten Schritt trotzdem ausprobieren.'
         : 'Als Nächstes kannst du testen, ob diese Kundengruppe die Ernte abnehmen könnte.'}</p>}
@@ -156,7 +209,7 @@ export function FundingQuestionnaire({ answers, input, index, onAnswer, onGoTo, 
         : 'Der Strom liegt innerhalb deiner Grenze. Dazu kommen die übrigen Kosten.'}</p>}
       <div className="funding-question-actions">
         <button type="button" className="atlas-outline" disabled={index === 0} onClick={() => onGoTo(index - 1)}><ArrowLeft size={17} /> Zurück</button>
-        <button type="button" className="atlas-primary" disabled={selected === undefined} onClick={next}>{last && firstIncomplete === -1 ? 'Decision Brief erstellen' : 'Weiter'} {last && firstIncomplete === -1 ? <FileText size={17} /> : <ArrowRight size={17} />}</button>
+        <button type="button" className="atlas-primary" disabled={!canContinue} onClick={next}>{last && firstIncomplete === -1 ? 'Decision Brief erstellen' : 'Weiter'} {last && firstIncomplete === -1 ? <FileText size={17} /> : <ArrowRight size={17} />}</button>
       </div>
     </div>
   </section>
@@ -197,7 +250,7 @@ export function FundingSummary({ outcome, answers, onEdit, onManual, onRecalcula
     <div className="funding-result-details">
       <details className="atlas-details"><summary>Antworten und Entscheidungsregeln</summary>
         <div className="funding-rule-notes">
-          <p>Eine überschrittene Stromkostengrenze oder fehlende Grundvoraussetzungen sprechen gegen das aktuelle Szenario. Bei einem erkennbaren Ansatz und offenen Nachweisen kommt ein Pilot infrage. Breite Förderung setzt zudem belastbare Messdaten und Prüfungen an mehreren Standorten voraus.</p>
+          <p>Eine überschrittene Stromkostengrenze oder fehlende Grundvoraussetzungen sprechen gegen das aktuelle Szenario. Bei einem erkennbaren Ansatz und offenen Nachweisen kommt ein Pilot infrage. Breite Förderung setzt im Planspiel eine passende Spitzenlast und einen belegten Klimavergleich voraus. Ein realer Ausbau braucht Nachweise an mehreren Standorten.</p>
           <p>Offene Angaben: {outcome.gaps.length ? outcome.gaps.join(', ') : 'Keine Antwort als unklar markiert.'}</p>
         </div>
         <ul className="funding-review-list">{fundingQuestions.map((question, index) => <li key={question.id}><button type="button" className="atlas-text" onClick={() => onEdit(index)}>{question.topic}</button><span>{fundingAnswerLabel(question, answers[question.id])}</span></li>)}</ul>

@@ -349,6 +349,29 @@
       ]
     },
     {
+      "id": "destatis2025",
+      "short": "Destatis · Gemüseerhebung 2025",
+      "label": "Versorgung · Deutschland",
+      "title": "Betriebe, Anbauflächen, Erträge und Erntemengen von Gemüse und Erdbeeren 2025",
+      "authors": "Statistisches Bundesamt",
+      "year": 2026,
+      "url": "https://www.destatis.de/DE/Themen/Branchen-Unternehmen/Landwirtschaft-Forstwirtschaft-Fischerei/Obst-Gemuese-Gartenbau/Tabellen/betriebe-anbau-erntemenge-gemuese.html",
+      "accessed": "2026-11-23",
+      "locator": "Gemüse im Freiland, Zeile Kopfsalat, Spalte Erntemenge",
+      "kind": "Amtliche Gemüseerhebung",
+      "access": "Originaltabelle gelesen",
+      "product": "Kopfsalat im Freiland",
+      "region": "Deutschland",
+      "period": "Erntejahr 2025",
+      "boundary": "Inländische Freilandernte der erfassten Betriebe. Geschützter Anbau, Einfuhren und Verbrauch liegen außerhalb dieser Bezugsgröße.",
+      "limitations": [
+        "Der Vergleich mit Modell-Salat zeigt eine Größenordnung. Für Marktanteile und ersetzte Liefermengen wären Absatz- und Importdaten nötig."
+      ],
+      "findings": [
+        "Die deutsche Freiland-Kopfsalaternte betrug 2025 30.250 t."
+      ]
+    },
+    {
       "id": "scenario",
       "short": "Eigene Modellannahme",
       "label": "Szenariomodell · 2040",
@@ -511,6 +534,23 @@
       "boundary": "Frischwasserzusatz für den Anbau nach Rückgewinnung; ohne Reinigung, Anlagenherstellung und indirektes Wasser der Stromerzeugung.",
       "uncertainty": "Bewusst gewählte Szenarioannahme, kein universeller Quellenwert und kein vollständiger Wasserfußabdruck.",
       "kind": "assumption"
+    },
+    {
+      "id": "de-head-lettuce-2025",
+      "label": "Freiland-Kopfsalaternte Deutschland",
+      "value": 30250,
+      "unit": "t/Jahr",
+      "sourceId": "destatis2025",
+      "locator": "Zeile Kopfsalat, Erntemenge",
+      "basis": "Inländische Ernte im Freiland",
+      "product": "Kopfsalat im Freiland",
+      "region": "Deutschland",
+      "dataYear": "2025",
+      "publicationYear": 2026,
+      "boundary": "Kopfsalat im Freiland, ohne andere Salate, geschützten Anbau und Importe.",
+      "uncertainty": "Für den Inlandsverbrauch sind auch Ein- und Ausfuhren sowie andere Anbauformen relevant.",
+      "nature": "Amtliche Gemüseerhebung",
+      "kind": "source"
     },
     {
       "id": "yield-science",

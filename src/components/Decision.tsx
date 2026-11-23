@@ -8,8 +8,8 @@ import type { CriterionId, DecisionState, Verdict } from './Brief'
 import { getSource, sources } from '../data/catalog'
 import { citationMarker, hasCitation, evidenceWithoutCitation, restoredCriterionSource, selectCriterionSource } from '../lib/citations'
 import { FundingQuestionnaire, FundingSummary } from './FundingQuestionnaire'
-import { evaluateFunding, fundingQuestions, restoreAnswers } from '../lib/funding-questionnaire'
-import type { Answers, QuestionId } from '../lib/funding-questionnaire'
+import { evaluateFunding, fundingQuestions, hasFundingPriorities, restoreAnswers, restoreFundingReview } from '../lib/funding-questionnaire'
+import type { Answers, FundingReview, QuestionId } from '../lib/funding-questionnaire'
 import './decision.css'
 
 const STORAGE_KEY = 'stadtlabor2040-decision-v1'
@@ -87,6 +87,10 @@ const optionComparison: Record<'A' | 'B' | 'C', { symbol: Verdict; evidence: str
     { symbol: '?', evidence: 'Verteilung von Nutzen, Einkommen und Zugang offen.', source: 'material' },
     { symbol: '±', evidence: 'Vorhandene Betriebe und Logistik auf Eignung prüfen.', source: 'scenario' },
   ],
+}
+
+function FundingOptionComparison({ onSource }: Pick<DecisionProps, 'onSource'>) {
+  return <details className="decision-details option-comparison"><summary>Förderoptionen anhand der fünf Kriterien vergleichen</summary><p>Beispielurteile als Diskussionsgrundlage. Standortdaten fehlen; die Symbole ergeben keine Rangliste.</p><div className="option-comparison-scroll" tabIndex={0} role="region" aria-label="Vergleich der Förderoptionen, horizontal scrollbar"><table><caption>Qualitativer Vergleich von A, B und C</caption><thead><tr><th scope="col">Kriterium</th>{OPTIONS.map(option => <th key={option.id} scope="col">{option.id} · {option.label}</th>)}</tr></thead><tbody>{INITIAL_DECISION.criteria.map((criterion, index) => <tr key={criterion.id}><th scope="row">{criterion.label}</th>{OPTIONS.map(option => { const assessment = optionComparison[option.id][index]; return <td key={option.id}><strong className="comparison-verdict" aria-label={symbols.find(symbol => symbol.value === assessment.symbol)?.label}>{assessment.symbol}</strong><p>{assessment.evidence}</p><button type="button" className="source-button" onClick={() => onSource(assessment.source)}>Beleg / Grenze</button></td> })}</tr>)}</tbody></table></div><p className="decision-hint">+ dafür · ± nur unter Bedingungen · − dagegen · ? Daten fehlen</p></details>
 }
 
 function DecisionEditor({ input, result, onSource, generated }: DecisionProps & { generated?: DecisionState }) {
@@ -170,7 +174,7 @@ function DecisionEditor({ input, result, onSource, generated }: DecisionProps & 
       <fieldset className="decision-options"><legend>Welche Förderung empfiehlst du?</legend>{OPTIONS.map(option => <label key={option.id} className={state.option === option.id ? 'decision-option selected' : 'decision-option'}><input type="radio" name="funding-option" value={option.id} checked={state.option === option.id} onChange={() => { update('option', option.id); setConfirmed(false) }} /><span className="option-letter">{option.id}</span><span><strong>{option.label}</strong><small>{option.description}</small></span></label>)}</fieldset>
 
       {!confirmed && <p role="alert">Förderoption geändert. Prüfe Empfehlung, Bedingungen und Kriterien. <button type="button" onClick={() => setConfirmed(true)}>Begründung geprüft</button></p>}
-      <details className="decision-details option-comparison"><summary>Förderoptionen anhand der fünf Kriterien vergleichen</summary><p>Beispielurteile als Diskussionsgrundlage. Standortdaten fehlen; die Symbole ergeben keine Rangliste.</p><div className="option-comparison-scroll" tabIndex={0} role="region" aria-label="Vergleich der Förderoptionen, horizontal scrollbar"><table><caption>Qualitativer Vergleich von A, B und C</caption><thead><tr><th scope="col">Kriterium</th>{OPTIONS.map(option => <th key={option.id} scope="col">{option.id} · {option.label}</th>)}</tr></thead><tbody>{INITIAL_DECISION.criteria.map((criterion, index) => <tr key={criterion.id}><th scope="row">{criterion.label}</th>{OPTIONS.map(option => { const assessment = optionComparison[option.id][index]; return <td key={option.id}><strong className="comparison-verdict" aria-label={symbols.find(symbol => symbol.value === assessment.symbol)?.label}>{assessment.symbol}</strong><p>{assessment.evidence}</p><button type="button" className="source-button" onClick={() => onSource(assessment.source)}>Beleg / Grenze</button></td> })}</tr>)}</tbody></table></div><p className="decision-hint">+ dafür · ± nur unter Bedingungen · − dagegen · ? Daten fehlen</p></details>
+      <FundingOptionComparison onSource={onSource} />
 
       <details className="decision-details decision-priorities" open><summary>Zwei wichtigste Kriterien <span>{state.criteria.filter(criterion => state.priorities.includes(criterion.id)).map(criterion => criterion.label).join(' · ') || 'Noch auswählen'}</span></summary><p>Wähle genau zwei und begründe ihre Priorität. Es gibt keine Gesamtnote.</p><div className="priority-choices">{state.criteria.map(criterion => <label key={criterion.id} className={state.priorities.includes(criterion.id) ? 'priority-choice chosen' : 'priority-choice'}><input type="checkbox" checked={state.priorities.includes(criterion.id)} onChange={() => togglePriority(criterion.id)} disabled={state.priorities.length === 2 && !state.priorities.includes(criterion.id)} /><span>{criterion.label}</span></label>)}</div><label className="decision-field">Warum diese beiden?<textarea aria-label="Warum diese beiden?" rows={2} maxLength={300} value={state.priorityReason} onChange={event => update('priorityReason', event.target.value)} /></label></details>
 
@@ -222,10 +226,10 @@ function DecisionEditor({ input, result, onSource, generated }: DecisionProps & 
   </div>
 }
 
-type Session = { answers: Answers; index: number; complete: boolean; scenario?: Input; changes?: Partial<Input> }
+type Session = { answers: Answers; review: FundingReview; index: number; complete: boolean; scenario?: Input; changes?: Partial<Input> }
 
 function newSession(): Session {
-  return { answers: {}, index: 0, complete: false }
+  return { answers: {}, review: restoreFundingReview(null), index: 0, complete: false }
 }
 
 export function readFundingSession(): Session {
@@ -237,7 +241,9 @@ export function readFundingSession(): Session {
     const index = Number.isInteger(raw.index) && raw.index >= 0 && raw.index < fundingQuestions.length ? raw.index : 0
     const scenario = raw.scenario as Input | undefined
     const validScenario = scenario && PARAMS.every(({ key, min, max }) => Number.isFinite(scenario[key]) && scenario[key] >= min && scenario[key] <= max) && Number.isInteger(scenario.levels)
-    return { answers, complete: true, index, scenario: validScenario ? scenario : undefined }
+    const review = restoreFundingReview(raw.review)
+    const complete = hasFundingPriorities(review)
+    return { answers, review, complete, index: complete ? index : 0, scenario: validScenario ? scenario : undefined }
   } catch {
     return newSession()
   }
@@ -248,25 +254,43 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
   const [latestDraft, setLatestDraft] = useState<DecisionState>()
   const evaluatedInput = session.scenario ?? props.input
   const questionInput = session.changes ? { ...evaluatedInput, ...session.changes } : evaluatedInput
-  const outcome = session.complete ? evaluateFunding(session.answers, evaluatedInput) : null
+  const outcome = session.complete ? evaluateFunding(session.answers, evaluatedInput, session.review) : null
   const changedScenario = PARAMS.some(({ key }) => props.input[key] !== evaluatedInput[key])
-
-  useEffect(() => {
-    try {
-      if (!readFundingSession().complete) localStorage.removeItem(QUESTIONNAIRE_KEY)
-    } catch { /* The questionnaire can still be used in memory. */ }
-  }, [])
 
   function goTo(index: number) {
     setSession(current => ({ ...current, index, complete: false }))
   }
 
   function answer(id: QuestionId, value: string | number | undefined) {
-    setSession(current => ({ ...current, answers: restoreAnswers({ ...current.answers, [id]: value }) }))
+    setSession(current => {
+      const review = { ...current.review }
+      if (id === 'goal' && current.answers.goal !== value) {
+        review.priorities = []
+        review.priorityReason = ''
+      }
+      if (id === 'climate' && current.answers.climate !== value) {
+        review.climateResult = undefined
+        review.climateEvidence = ''
+      }
+      return { ...current, review, answers: restoreAnswers({ ...current.answers, [id]: value }) }
+    })
+  }
+
+  function updateReview(changes: Partial<FundingReview>) {
+    setSession(current => ({ ...current, scenario: current.scenario ?? (changes.peakPower || changes.climateResult ? { ...props.input } : undefined), review: { ...current.review, ...changes } }))
   }
 
   function updateScenario(key: InputKey, value: number) {
-    setSession(current => ({ ...current, changes: { ...current.changes, [key]: value } }))
+    setSession(current => {
+      if ((current.changes?.[key] ?? (current.scenario ?? props.input)[key]) === value) return current
+      const review = { ...current.review }
+      if (key !== 'electricityPrice') {
+        review.climateResult = undefined
+        review.climateEvidence = ''
+      }
+      if (key !== 'electricityPrice' && key !== 'gridFactor' && key !== 'waterPerKg') review.peakPower = undefined
+      return { ...current, review, changes: { ...current.changes, [key]: value } }
+    })
   }
 
   function reset() {
@@ -279,13 +303,14 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
     requestAnimationFrame(() => document.getElementById('funding-question-title')?.focus())
   }
 
-  function generate(input: Input) {
-    const evaluation = evaluateFunding(session.answers, input)
+  function generate(input: Input, review = session.review) {
+    review = restoreFundingReview(review)
+    const evaluation = evaluateFunding(session.answers, input, review)
     if (!evaluation) return
     const localDate = new Date().toLocaleDateString('sv-SE')
     const existing = initialState(GENERATED_KEY, { ...evaluation.draft, date: localDate }).draft
     const draft = { ...evaluation.draft, names: existing.names, date: existing.date }
-    const completedSession: Session = { answers: session.answers, index: session.index, complete: true, scenario: { ...input } }
+    const completedSession: Session = { answers: session.answers, review, index: session.index, complete: true, scenario: { ...input } }
     try {
       localStorage.setItem(GENERATED_KEY, JSON.stringify({ ...draft, optionReviewed: true }))
       localStorage.setItem(QUESTIONNAIRE_KEY, JSON.stringify(completedSession))
@@ -300,9 +325,9 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
   </>
   return <>
     {outcome ? <>
-      <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} onRecalculate={changedScenario ? () => generate(props.input) : undefined} />
+      <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} onRecalculate={changedScenario ? () => generate(props.input, { ...session.review, peakPower: undefined, climateResult: undefined, climateEvidence: '' }) : undefined} />
       <DecisionEditor key={`questionnaire-${JSON.stringify(evaluatedInput)}`} {...props} input={evaluatedInput} result={calculate(evaluatedInput)} generated={latestDraft ?? outcome.draft} />
-    </> : <FundingQuestionnaire input={questionInput} answers={session.answers} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={() => generate(questionInput)} onManual={() => setManual(true)} onUpdateScenario={updateScenario} />}
+    </> : <FundingQuestionnaire input={questionInput} answers={session.answers} review={session.review} onReview={updateReview} optionComparison={<FundingOptionComparison onSource={props.onSource} />} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={() => generate(questionInput)} onManual={() => setManual(true)} onUpdateScenario={updateScenario} />}
     <div className="funding-reset no-print">
       <button type="button" className="atlas-outline" onClick={reset} disabled={!session.changes && Object.keys(session.answers).length === 0}>
         <ArrowCounterClockwise size={17} /> Fragebogen zurücksetzen

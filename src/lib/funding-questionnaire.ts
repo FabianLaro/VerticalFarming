@@ -1,5 +1,5 @@
 import { INITIAL_DECISION } from '../components/Brief'
-import type { Criterion, DecisionState } from '../components/Brief'
+import type { Criterion, CriterionId, DecisionState } from '../components/Brief'
 import { amount, number } from './format'
 import { applyPreset, BASE_INPUT, calculate } from './model'
 import type { Input } from './model'
@@ -25,20 +25,14 @@ const goals = {
   supply: {
     label: 'Verlässliche lokale Versorgung',
     brief: 'Regionale Abnehmer auch außerhalb der Freilandsaison verlässlich mit Blattgemüse versorgen.',
-    priorities: ['food', 'society'],
-    reason: 'Entscheidend sind verfügbare Mengen und bezahlbarer Zugang für lokale Abnehmer.',
   },
   environment: {
     label: 'Klima und Flächen schonen',
     brief: 'Blattgemüse mit möglichst geringen Umweltwirkungen und geringem Flächenbedarf bereitstellen.',
-    priorities: ['environment', 'economy'],
-    reason: 'Ökobilanz und Vollkosten zeigen den Nutzen pro eingesetztem Euro.',
   },
   learning: {
     label: 'Erst Betriebsdaten gewinnen',
     brief: 'Belastbare Betriebsdaten für eine spätere Förderentscheidung gewinnen.',
-    priorities: ['feasibility', 'economy'],
-    reason: 'Die Erprobung braucht einen umsetzbaren Standort und ein begrenztes öffentliches Risiko.',
   },
 } as const
 
@@ -98,6 +92,32 @@ export type Answers = Partial<{
   scale: typeof scaleOptions[number]['id']
 }>
 
+export type FundingReview = {
+  priorities: CriterionId[]
+  priorityReason: string
+  peakPower?: number
+  climateResult?: 'meets' | 'misses'
+  climateEvidence: string
+}
+
+export function restoreFundingReview(value: unknown): FundingReview {
+  const entry = value && typeof value === 'object' ? value as Partial<FundingReview> : {}
+  const priorities = Array.isArray(entry.priorities)
+    ? [...new Set(entry.priorities)].filter(id => INITIAL_DECISION.criteria.some(criterion => criterion.id === id)).slice(0, 2)
+    : []
+  return {
+    priorities,
+    priorityReason: typeof entry.priorityReason === 'string' ? entry.priorityReason.trim().slice(0, 180) : '',
+    peakPower: typeof entry.peakPower === 'number' && entry.peakPower > 0 && entry.peakPower <= Number.MAX_SAFE_INTEGER ? entry.peakPower : undefined,
+    climateResult: entry.climateResult === 'meets' || entry.climateResult === 'misses' ? entry.climateResult : undefined,
+    climateEvidence: typeof entry.climateEvidence === 'string' ? entry.climateEvidence.trim().slice(0, 100) : '',
+  }
+}
+
+export function hasFundingPriorities(review: FundingReview) {
+  return review.priorities.length === 2 && Boolean(review.priorityReason.trim())
+}
+
 const lowerGridFactor = applyPreset('power').gridFactor
 
 function numericAnswer(field: EditableQuestionId, answer: string | number | undefined): number | null {
@@ -113,7 +133,7 @@ export function fundingAnswerLabel(question: typeof fundingQuestions[number], an
   return question.options.find(option => option.id === answer)?.label
 }
 
-export function siteChecks(answers: Answers, input: Input) {
+export function siteChecks(answers: Answers, input: Input, peakPower?: number) {
   const { energy, harvest } = calculate(input)
   const hall = numericAnswer('building', answers.building)
   const connection = numericAnswer('power', answers.power)
@@ -124,6 +144,8 @@ export function siteChecks(answers: Answers, input: Input) {
     hall, connection, orders, averagePower, weeklyHarvest,
     hallTooSmall: hall !== null && hall < input.footprint,
     connectionTooWeak: connection !== null && connection < averagePower,
+    peakPower: peakPower !== undefined && peakPower >= averagePower ? peakPower : null,
+    peakTooHigh: connection !== null && peakPower !== undefined && peakPower >= averagePower && peakPower > connection,
     unsoldPerWeek: orders === null ? null : Math.max(0, weeklyHarvest - orders),
     extraDemandPerWeek: orders === null ? null : Math.max(0, orders - weeklyHarvest),
   }
@@ -201,10 +223,12 @@ const options: Record<DecisionState['option'], Pick<DecisionState, 'recommendati
 
 type Reason = { field: QuestionId; text: string }
 
-function recommend(answers: Answers, site: ReturnType<typeof siteChecks>, checks: ReturnType<typeof fundingChecks>): { option: DecisionState['option']; explanation: string; expansionGaps: Reason[] } {
+function recommend(answers: Answers, site: ReturnType<typeof siteChecks>, checks: ReturnType<typeof fundingChecks>, climateResult: FundingReview['climateResult']): { option: DecisionState['option']; explanation: string; expansionGaps: Reason[] } {
   const blockers: Reason[] = []
   if (site.hallTooSmall) blockers.push({ field: 'building', text: 'Die Beispielhalle ist zu klein.' })
   if (site.connectionTooWeak) blockers.push({ field: 'power', text: 'Der Beispielanschluss reicht schon im Durchschnitt nicht aus.' })
+  else if (site.peakTooHigh) blockers.push({ field: 'power', text: 'Die angegebene Spitzenlast übersteigt den Beispielanschluss.' })
+  if (climateResult === 'misses') blockers.push({ field: 'climate', text: 'Die vergleichbare Klimabilanz verfehlt das gewählte Ziel.' })
   if (checks.costExceeded) blockers.push({ field: 'cost', text: 'Der Strom allein kostet mehr als im Planspiel angesetzt.' })
   if (answers.scale === 'failed') blockers.push({ field: 'scale', text: 'Im angenommenen Test hat die Farm ihre Ziele verfehlt.' })
   const expansionGaps = [...blockers]
@@ -212,6 +236,8 @@ function recommend(answers: Answers, site: ReturnType<typeof siteChecks>, checks
   if (answers.goal === 'learning') expansionGaps.push({ field: 'goal', text: 'Euer Ziel ist, die Farm erst einmal zu testen.' })
   if (site.hall === null) expansionGaps.push({ field: 'building', text: 'Eine passende Halle ist offen.' })
   if (site.connection === null) expansionGaps.push({ field: 'power', text: 'Die Leistung des Stromanschlusses ist offen.' })
+  else if (!site.connectionTooWeak && site.peakPower === null) expansionGaps.push({ field: 'power', text: 'Eine plausible Spitzenlast für Licht, Klima und Pumpen fehlt.' })
+  if (!climateResult) expansionGaps.push({ field: 'climate', text: 'Eine vergleichbare Klimabilanz mit Prüfziel und Beleg fehlt.' })
   if (!hasBuyer) expansionGaps.push({ field: 'demand', text: 'Es fehlt eine Kundengruppe für den Salat.' })
   if (site.orders === null) expansionGaps.push({ field: 'sales', text: 'Die Abnahmemenge ist offen.' })
   else if (site.unsoldPerWeek && site.unsoldPerWeek > 1e-9) expansionGaps.push({ field: 'sales', text: `Für rund ${number(site.unsoldPerWeek, 2)} kg Salat pro Woche fehlen Kunden.` })
@@ -228,12 +254,12 @@ function recommend(answers: Answers, site: ReturnType<typeof siteChecks>, checks
 
   if (!expansionGaps.length) return {
     option: 'A',
-    explanation: 'Im Planspiel reichen Halle, Stromanschluss und Abnahme aus. Die Stromkosten bleiben im Rahmen, der Test gelingt und die anderen Anbauformen erreichen das Ziel nicht. Vor einer echten Förderung prüft die Stadt jeden weiteren Standort.',
+    explanation: 'Im Planspiel passen Grundfläche, Spitzenlast und Abnahme. Die angegebene Klimabilanz erreicht das Ziel, der Test gelingt und die Alternativen erreichen das Förderziel nicht. Vor einer Förderung prüft die Stadt jeden Standort.',
     expansionGaps,
   }
   if (site.hall !== null || site.connection !== null || (hasBuyer && site.orders !== null)) return {
     option: 'B',
-    explanation: 'Die Farm ist einen befristeten Test wert. Die offenen Punkte entscheiden darüber, ob sich ein Ausbau lohnt.',
+    explanation: 'Ein befristeter Pilot kommt infrage. Die offenen Nachweise entscheiden, ob die Farm das Förderziel erreicht und ein Ausbau vertretbar ist.',
     expansionGaps,
   }
   return {
@@ -243,28 +269,29 @@ function recommend(answers: Answers, site: ReturnType<typeof siteChecks>, checks
   }
 }
 
-function criteriaFor(answers: Answers, site: ReturnType<typeof siteChecks>, checks: ReturnType<typeof fundingChecks>): Criterion[] {
+function criteriaFor(answers: Answers, site: ReturnType<typeof siteChecks>, checks: ReturnType<typeof fundingChecks>, review: FundingReview, climateResult: FundingReview['climateResult']): Criterion[] {
   const buyersNamed = answers.demand !== 'unknown'
   return [
     { id: 'food', label: 'Ernährungsbeitrag', symbol: buyersNamed && site.orders !== null ? '±' : '?', evidence: 'Blattgemüse ergänzt das Angebot. Liefermengen vor Ort prüfen', source: 'dlr2019' },
-    { id: 'environment', label: 'Umwelt', symbol: '?', evidence: 'Strom und Saison prägen die Bilanz. Vollständiger Vergleich offen', source: 'stanghellini2024' },
+    { id: 'environment', label: 'Umwelt', symbol: climateResult === 'misses' ? '−' : climateResult === 'meets' ? '±' : '?', evidence: climateResult ? 'Klimanachweis im Planspiel: ' + review.climateEvidence : 'Strom und Saison prägen die Bilanz. Vollständiger Vergleich offen', source: climateResult ? 'scenario' : 'stanghellini2024' },
     { id: 'economy', label: 'Wirtschaftlichkeit', symbol: checks.costExceeded ? '−' : checks.limit === null ? '?' : '±', evidence: 'Stromkosten lassen sich modellieren. Vollkosten vor Ort prüfen', source: 'scenario' },
     { id: 'society', label: 'Gesellschaft', symbol: buyersNamed ? '±' : '?', evidence: 'Zugang für Kundschaft und Wirkungen auf Betriebe prüfen', source: 'material' },
-    { id: 'feasibility', label: 'Umsetzbarkeit', symbol: site.hallTooSmall || site.connectionTooWeak ? '−' : site.hall !== null && site.connection !== null ? '±' : '?', evidence: 'Gebäude und maximalen Strombedarf am echten Standort prüfen', source: 'scenario' },
+    { id: 'feasibility', label: 'Umsetzbarkeit', symbol: site.hallTooSmall || site.connectionTooWeak || site.peakTooHigh ? '−' : site.hall !== null && site.connection !== null && site.peakPower !== null ? '±' : '?', evidence: site.peakTooHigh ? 'Die angegebene Spitzenlast übersteigt den Anschluss' : 'Gebäude und Spitzenlast am Standort prüfen', source: 'scenario' },
   ]
 }
 
-export function evaluateFunding(answers: Answers, input: Input) {
-  if (fundingQuestions.some(question => answers[question.id] === undefined)) return null
+export function evaluateFunding(answers: Answers, input: Input, review: FundingReview) {
+  if (!hasFundingPriorities(review) || fundingQuestions.some(question => answers[question.id] === undefined)) return null
   const goal = goals[answers.goal!]
   const checks = fundingChecks(answers, input)
-  const site = siteChecks(answers, input)
-  const judgement = recommend(answers, site, checks)
+  const site = siteChecks(answers, input, review.peakPower)
+  const climateResult = review.climateEvidence.trim() ? review.climateResult : undefined
+  const judgement = recommend(answers, site, checks, climateResult)
   const unknown = fundingQuestions.filter(question => answers[question.id] === 'unknown' || question.id === 'alternative' && answers.alternative === 'open')
   const gaps = unknown.map(question => question.topic)
   const localDetails = [
     site.hall === null ? '' : `Halle ${amount(site.hall, 'm²')}${site.hallTooSmall ? ' (zu klein)' : ''}`,
-    site.connection === null ? '' : `Anschluss ${amount(site.connection, 'kW')} (Ø Bedarf ${number(site.averagePower, 1)})`,
+    site.connection === null ? '' : `Anschluss ${amount(site.connection, 'kW')} (Ø Bedarf ${number(site.averagePower, 1)}${site.peakPower === null ? ', Spitze offen' : ', Spitze ' + amount(site.peakPower, 'kW', 1)})`,
     site.orders === null ? '' : `Mögliche Abnahme ${number(site.orders)} bei Ø ${amount(site.weeklyHarvest, 'kg/Woche')}`,
   ].filter(Boolean)
   const siteBasis = [
@@ -276,10 +303,10 @@ export function evaluateFunding(answers: Answers, input: Input) {
   ].filter(Boolean).join(' ')
   const draft: DecisionState = {
     ...structuredClone(INITIAL_DECISION), ...structuredClone(options[judgement.option]),
-    option: judgement.option, goal: goal.brief, priorities: [...goal.priorities], priorityReason: goal.reason,
-    criteria: criteriaFor(answers, site, checks), siteBasis,
+    option: judgement.option, goal: goal.brief, priorities: [...review.priorities], priorityReason: review.priorityReason.trim(),
+    criteria: criteriaFor(answers, site, checks, review, climateResult), siteBasis,
     scenarioBasis: `${checks.costDetail} [M]. ${checks.climateDetail}.`,
-    uncertainty: 'Vollkosten, Ökobilanz und die Beispielangaben vor Ort prüfen.',
+    uncertainty: climateResult ? 'Vollkosten und die Nachweise aus dem Planspiel vor Ort prüfen.' : 'Vollkosten, Ökobilanz und die Beispielangaben vor Ort prüfen.',
   }
   return { ...judgement, draft, gaps, checks }
 }

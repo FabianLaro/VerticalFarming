@@ -5,7 +5,6 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { SceneFallback } from './SceneFallback'
-import './scene.css'
 
 export type FarmSystem = 'vertical' | 'greenhouse' | 'field'
 export interface FarmSceneProps {
@@ -23,7 +22,7 @@ export interface FarmSceneProps {
 }
 
 type Vec3 = [number, number, number]
-const colors = { metal: '#b5bdba', edge: '#57655f', wall: '#e9e7dd', tray: '#d9dfd2', water: '#318f9a', return: '#3d6666', earth: '#5d4632' }
+const colors = { metal: '#b5bdba', edge: '#57655f', wall: '#e9e7dd', tray: '#d9dfd2', water: '#318f9a', return: '#226453', condensate: '#76569c', earth: '#5d4632' }
 const modelPath = (name: string) => `${import.meta.env.BASE_URL}models/${name}.glb`
 const packedModels = new WeakMap<THREE.Group, THREE.Group>()
 const parts = [
@@ -44,6 +43,17 @@ function Box({ position, size, color = colors.metal, rotation, emissive, opacity
 function Pipe({ points, color = colors.water, radius = 0.045 }: { points: Vec3[]; color?: string; radius?: number }) {
   const curve = useMemo(() => new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)), false, 'catmullrom', 0), [points])
   return <mesh castShadow><tubeGeometry args={[curve, Math.max(8, points.length * 5), radius, 7, false]} /><meshStandardMaterial color={color} roughness={0.38} metalness={0.15} /></mesh>
+}
+
+function FlowArrow({ from, to, color }: { from: Vec3; to: Vec3; color: string }) {
+  const start = new THREE.Vector3(...from)
+  const end = new THREE.Vector3(...to)
+  const direction = end.clone().sub(start).normalize()
+  const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)
+  return <mesh position={start.lerp(end, 0.5)} quaternion={rotation}>
+    <coneGeometry args={[0.13, 0.36, 10]} />
+    <meshBasicMaterial color={color} />
+  </mesh>
 }
 
 function packedModel(scene: THREE.Group): THREE.Group {
@@ -142,14 +152,18 @@ function Plants({ positions, quality }: { positions: Vec3[]; quality: FarmSceneP
   return <instancedMesh ref={mesh} args={[plant.geometry, plant.material, visiblePositions.length]} castShadow={quality === 'high'} receiveShadow dispose={null} />
 }
 
+const tierSpacing = (exploded: boolean) => exploded ? 1.17 : 0.85
+const traySlope = 0.012
+
 function Rack({ x, levels, exploded, quality, onLightSelect }: { x: number; levels: number; exploded: boolean; quality: FarmSceneProps['quality']; onLightSelect: () => void }) {
-  const gap = exploded ? 1.17 : 0.85
+  const gap = tierSpacing(exploded)
   const top = 0.65 + (levels - 1) * gap + 0.7
   const plants = useMemo(() => {
     const positions: Vec3[] = []
     for (let level = 0; level < levels; level++) {
       for (let row = 0; row < 12; row++) {
-        for (let col = 0; col < 4; col++) positions.push([x - 0.72 + col * 0.48, 0.65 + level * gap + 0.06, -2.8 + row * 0.5])
+        const z = -2.8 + row * 0.5
+        for (let col = 0; col < 4; col++) positions.push([x - 0.72 + col * 0.48, 0.65 + level * gap + 0.06 - z * traySlope, z])
       }
     }
     return positions
@@ -159,7 +173,7 @@ function Rack({ x, levels, exploded, quality, onLightSelect }: { x: number; leve
     {Array.from({ length: levels }, (_, level) => {
       const y = 0.65 + level * gap
       return <group key={level}>
-        <Model name="rack-tier" position={[x, y - 0.06, 0]} />
+        <Model name="rack-tier" position={[x, y - 0.06, 0]} rotation={[traySlope, 0, 0]} />
         {[-0.64, 0.64].map(dx => <group key={dx} onClick={event => { event.stopPropagation(); onLightSelect() }}>
           <Box position={[x + dx, y + 0.65, 0]} size={[0.09, 0.055, 6.4]} color="#e9f1e8" emissive="#b7dce0" />
           <Box position={[x + dx, y + 0.69, 0]} size={[0.14, 0.025, 6.4]} color={colors.metal} />
@@ -213,10 +227,13 @@ function SoilSurface({ position, width, depth }: { position: Vec3; width: number
   return <mesh position={position} geometry={geometry} receiveShadow><meshStandardMaterial vertexColors roughness={0.98} /></mesh>
 }
 
-function VerticalFarm({ levels, view, quality, onSelect, usable = 0.65 }: Pick<FarmSceneProps, 'levels' | 'view' | 'quality' | 'onSelect' | 'usable'>) {
+function VerticalFarm({ levels, view, quality, onSelect, selectedPart, usable = 0.65 }: Pick<FarmSceneProps, 'levels' | 'view' | 'quality' | 'onSelect' | 'usable' | 'selectedPart'>) {
   const rackPositions = [-4.5, -1.5, 1.5].slice(0, Math.max(1, Math.round(usable / 0.65 * 3)))
   const exploded = view === 'exploded'
-  const height = Math.max(3.8, (levels - 1) * (exploded ? 1.17 : 0.85) + 2.1)
+  const height = Math.max(3.8, (levels - 1) * tierSpacing(exploded) + 2.1)
+  const topConnection = 0.68 + (levels - 1) * tierSpacing(exploded)
+  const slopeOffset = 3.21 * traySlope
+  const showFlow = selectedPart === 'water' && view !== 'closed'
   const click = (id: string) => (e: { stopPropagation: () => void }) => { e.stopPropagation(); onSelect(id) }
   return <group>
     <Box position={[0, 0.16, 0]} size={[14.3, 0.3, 9.25]} color="#d9ddd2" />
@@ -242,9 +259,30 @@ function VerticalFarm({ levels, view, quality, onSelect, usable = 0.65 }: Pick<F
     </group>
     <group onClick={click('water')}>
       <Tank />
-      <Pipe points={[[7, 0.6, -1.8], [6.7, 0.6, -3.65], [-5.7, 0.6, -3.65], [-5.7, height - 0.6, -3.65]]} />
-      <Pipe points={[[-5.7, 0.39, 3.48], [6.4, 0.39, 3.48], [7.1, 0.39, 0], [8, 0.7, -1.2]]} color={colors.return} />
-      {rackPositions.map(x => <Pipe key={x} points={[[x, 0.6, -3.65], [x, height - 0.6, -3.65]]} radius={0.03} />)}
+      <Pipe points={[[7, 0.6, -1.8], [6.7, 0.6, -3.65], [-5.58, 0.6, -3.65]]} />
+      <Pipe points={[[-3.42, 0.39, 3.48], [6.4, 0.39, 3.48], [7.1, 0.39, 0], [8, 0.7, -1.2]]} color={colors.return} />
+      {rackPositions.map(x => <group key={x}>
+        <Pipe points={[[x - 1.08, 0.6, -3.65], [x - 1.08, topConnection + slopeOffset, -3.65]]} radius={0.035} />
+        <Pipe points={[[x + 1.08, topConnection - slopeOffset, 3.48], [x + 1.08, 0.39, 3.48]]} radius={0.035} color={colors.return} />
+        {Array.from({ length: levels }, (_, tier) => {
+          const y = 0.68 + tier * tierSpacing(exploded)
+          const inlet = y + slopeOffset
+          const outlet = y - slopeOffset
+          return <group key={tier}>
+            <Pipe points={[[x - 1.08, inlet, -3.65], [x - 1.08, inlet, -3.21], [x + 0.81, inlet, -3.21]]} radius={0.023} />
+            <Pipe points={[[x - 0.81, outlet, 3.21], [x + 1.08, outlet, 3.21], [x + 1.08, outlet, 3.48]]} radius={0.023} color={colors.return} />
+          </group>
+        })}
+      </group>)}
+      {showFlow && <>
+        <FlowArrow from={[3, 0.6, -3.65]} to={[2, 0.6, -3.65]} color={colors.water} />
+        <FlowArrow from={[-5.58, 0.6, -3.65]} to={[-5.58, topConnection, -3.65]} color={colors.water} />
+        <FlowArrow from={[-4.5, topConnection + 0.12, -2.8]} to={[-4.5, topConnection + 0.12, -2]} color={colors.water} />
+        <FlowArrow from={[-3.42, topConnection, 3.48]} to={[-3.42, 0.39, 3.48]} color={colors.return} />
+        <FlowArrow from={[4, 0.39, 3.48]} to={[5, 0.39, 3.48]} color={colors.return} />
+        <Pipe points={[[5.3, 0.52, -2.5], [5.3, 0.52, -0.5], [8, 0.52, -0.5], [8, 0.7, -1.2]]} color={colors.condensate} />
+        <FlowArrow from={[6, 0.52, -0.5]} to={[7, 0.52, -0.5]} color={colors.condensate} />
+      </>}
     </group>
     <group onClick={click('climate')}><Climate height={height} /></group>
     <group onClick={click('harvest')}><Harvest /></group>
@@ -487,7 +525,8 @@ export function FarmScene(props: FarmSceneProps) {
     <div ref={markerContainer} className="scene-markers">
       {markerLocations(props).map(({ id }) => {
         const part = parts.find(item => item[0] === id)!
-        return <button key={id} className="scene-marker" style={props.selectedPart === id ? { outline: "3px solid #527b45", background: "#dbead1" } : undefined} type="button" aria-label={`${part[1]}: ${part[2]} erklären`} title={part[2]} onClick={() => props.onSelect(id)}>{part[1]}</button>
+        const label = id === 'water' && props.system !== 'vertical' ? 'Bewässerung' : part[2]
+        return <button key={id} className="scene-marker" style={props.selectedPart === id ? { outline: "3px solid #527b45", background: "#dbead1" } : undefined} type="button" aria-label={`${part[1]}: ${label} erklären`} title={label} onClick={() => props.onSelect(id)}>{part[1]}</button>
       })}
     </div>
   </div></SceneBoundary>

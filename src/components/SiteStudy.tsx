@@ -1,7 +1,7 @@
 import { Component, lazy, Suspense, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, Cube, Eye, Minus, Plus } from '@phosphor-icons/react'
-import { partLabels, parts } from '../data/farm-parts'
+import { partLabels, parts, referenceParts } from '../data/farm-parts'
 import type { Part } from '../data/farm-parts'
 import type { Input, Result, System } from '../lib/model'
 import { number } from '../lib/format'
@@ -34,8 +34,13 @@ export function SiteStudy({ input, result, onSource, onCompare }: StudyProps) {
   const [cameraCommand, setCameraCommand] = useState<{ action: 'left' | 'right' | 'in' | 'out'; seq: number }>()
   const [quality, setQuality] = useState<'low' | 'high' | 'fallback'>(() => window.matchMedia('(pointer: coarse)').matches ? 'low' : 'high')
   const site = sites.find(item => item.id === system)!
-  const selected = parts[part]
-  const sceneProps = { system, levels: input.levels, footprint: input.footprint, usable: input.usable, selectedPart: part, view, cameraView: camera, resetKey, cameraCommand, quality: quality === 'fallback' ? 'low' as const : quality, onSelect: (id: string) => { if (Object.hasOwn(parts, id)) setPart(id as Part) } }
+  const systemParts = system === 'vertical' ? parts : referenceParts[system]
+  const selected = systemParts[part] ?? systemParts.plants!
+  function selectSystem(next: System) {
+    if (next !== system) setPart('plants')
+    setSystem(next)
+  }
+  const sceneProps = { system, levels: input.levels, footprint: input.footprint, usable: input.usable, selectedPart: part, view, cameraView: camera, resetKey, cameraCommand, quality: quality === 'fallback' ? 'low' as const : quality, onSelect: (id: string) => { if (Object.hasOwn(systemParts, id)) setPart(id as Part) } }
   const fallback = <SceneFallback {...sceneProps} />
 
   return <section className="site-study no-print">
@@ -71,21 +76,26 @@ export function SiteStudy({ input, result, onSource, onCompare }: StudyProps) {
     </div>
 
     <div className="atlas-site-grid" aria-label="Standorttypen">
-      {sites.map(item => <button type="button" key={item.id} onClick={() => setSystem(item.id)} aria-pressed={system === item.id} className={`atlas-site atlas-system-${item.id}`}>
+      {sites.map(item => <button type="button" key={item.id} onClick={() => selectSystem(item.id)} aria-pressed={system === item.id} className={`atlas-site atlas-system-${item.id}`}>
         <small>{item.label}</small><strong>{item.place}</strong><ArrowRight size={18} />
       </button>)}
     </div>
     <section className="atlas-site-detail" aria-label="Standort und Bauteile">
       <div><h2>Was der Standort braucht</h2><p>{site.requirement}</p><small>Standorttypen im Szenario, ohne geprüftes Grundstück.</small>{system === 'greenhouse' && <button type="button" className="atlas-text" onClick={() => onSource('fraunhofer')}>ALTMARKTgarten Oberhausen <ArrowRight size={15} /></button>}</div>
-      {system === 'vertical' && <div>
-        <div className="atlas-parts" aria-label="Bauteil auswählen">{(Object.keys(parts) as Part[]).map(id => <button type="button" key={id} onClick={() => setPart(id)} aria-pressed={part === id}>{partLabels[id]}</button>)}</div>
+      <div>
+        <div className="atlas-parts" aria-label="Bauteil auswählen">{(Object.keys(systemParts) as Part[]).map(id => <button type="button" key={id} onClick={() => setPart(id)} aria-pressed={part === id}>{id === 'water' && system !== 'vertical' ? 'Bewässerung' : partLabels[id]}</button>)}</div>
         <div aria-live="polite"><h2>{selected.title}</h2><p>{selected.text}</p></div>
+        {system === 'vertical' && part === 'water' && <ul className="atlas-water-flow">
+          <li><b>Blau</b> Tank → Pumpe → Anbaurinnen und Wurzeln</li>
+          <li><b>Dunkelgrün</b> Rücklauf der überschüssigen Nährlösung → Tank</li>
+          <li><b>Violett</b> Entfeuchtung → aufbereitetes Kondenswasser → Tank, sofern genutzt</li>
+        </ul>}
         <button type="button" className="atlas-text" onClick={() => onSource(selected.source)}>Beleg und Grenzen <ArrowRight size={15} /></button><details className="atlas-part-limit"><summary>Aussagegrenze</summary><p>{selected.limit}</p></details>
-      </div>}
+      </div>
       <div className="atlas-land-key"><span>Grundfläche → Anbaufläche</span><strong>{number(input.footprint)} → {number(result.cultivationArea)} <small>m²</small></strong><p>Vertical Farm · {number(input.usable * 100)} % nutzbar · {input.levels} Ebenen</p></div>
     </section>
 
-    <details className="render-archive atlas-details"><summary>Gerenderte Ansichten und Nahaufnahme</summary><RenderGallery system={system} onSystemChange={setSystem} /></details>
+    <details className="render-archive atlas-details"><summary>Gerenderte Ansichten und Nahaufnahme</summary><RenderGallery system={system} onSystemChange={selectSystem} /></details>
     <Knowledge onSource={onSource} />
   </section>
 }

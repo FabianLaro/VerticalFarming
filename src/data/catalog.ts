@@ -191,6 +191,17 @@ export const sources: Source[] = [
     findings: ['Regional ist nicht automatisch klimafreundlich: Beheizte Winterproduktion kann trotz kurzer Wege ungünstiger sein.', 'Produktionsweise, Energieversorgung und Saison müssen mit den Transportwegen geprüft werden.'],
   },
   {
+    id: 'destatis2025', short: 'Destatis · Gemüseerhebung 2025', label: 'Versorgung · Deutschland',
+    title: 'Betriebe, Anbauflächen, Erträge und Erntemengen von Gemüse und Erdbeeren 2025',
+    authors: 'Statistisches Bundesamt', year: 2026,
+    url: 'https://www.destatis.de/DE/Themen/Branchen-Unternehmen/Landwirtschaft-Forstwirtschaft-Fischerei/Obst-Gemuese-Gartenbau/Tabellen/betriebe-anbau-erntemenge-gemuese.html', accessed: '2026-11-23',
+    locator: 'Gemüse im Freiland, Zeile Kopfsalat, Spalte Erntemenge', kind: 'Amtliche Gemüseerhebung', access: 'Originaltabelle gelesen',
+    product: 'Kopfsalat im Freiland', region: 'Deutschland', period: 'Erntejahr 2025',
+    boundary: 'Inländische Freilandernte der erfassten Betriebe. Geschützter Anbau, Einfuhren und Verbrauch liegen außerhalb dieser Bezugsgröße.',
+    limitations: ['Der Vergleich mit Modell-Salat zeigt eine Größenordnung. Für Marktanteile und ersetzte Liefermengen wären Absatz- und Importdaten nötig.'],
+    findings: ['Die deutsche Freiland-Kopfsalaternte betrug 2025 30.250 t.'],
+  },
+  {
     id: 'scenario', short: 'Eigene Modellannahme', label: 'Szenariomodell · 2040',
     title: 'Offengelegte Annahmen des Stadtlabors 2040', authors: 'Stadtlabor 2040', year: 2026,
     url: '#modellgrenzen', accessed: '2026-11-16', locator: 'Eingaberegister und Formeln im Projekt; keine empirische Betriebsquelle',
@@ -252,6 +263,7 @@ const fromSource = (id: string, label: string, value: number, unit: string, sour
 };
 
 export const evidenceData: Datum[] = [
+  fromSource('de-head-lettuce-2025', 'Freiland-Kopfsalaternte Deutschland', 30250, 't/Jahr', 'destatis2025', 'Zeile Kopfsalat, Erntemenge', 'Inländische Ernte im Freiland', '2025', 'Kopfsalat im Freiland, ohne andere Salate, geschützten Anbau und Importe.', 'Für den Inlandsverbrauch sind auch Ein- und Ausfuhren sowie andere Anbauformen relevant.'),
   fromSource('yield-science', 'VF-Ertrag wissenschaftlicher Angaben', 59.7, 'kg/(m²·Jahr)', 'pennisi2025', 'Abb. 2, S. 4; n = 54', 'Je m² Anbaufläche; Frischmasse', 'Heterogene Studien vor 2025', 'Gruppenmittel wissenschaftlicher Studien.', 'Keine natürliche Untergrenze; Mittelwert nicht garantierte Anlagenleistung.'),
   fromSource('yield-business', 'VF-Ertrag Unternehmensangaben', 105.2, 'kg/(m²·Jahr)', 'pennisi2025', 'Abb. 2, S. 4; n = 32', 'Je m² Anbaufläche; Frischmasse', 'Heterogene Angaben vor 2025', 'Gruppenmittel der Unternehmensangaben.', 'Keine natürliche Obergrenze; mögliche selektive Veröffentlichung.'),
   fromSource('eue-science', 'Energieeffizienz wissenschaftlicher Angaben', 0.13, 'kg/kWh', 'pennisi2025', 'Abb. 3, S. 5; n = 34', 'Frischmasse pro Gesamtenergie', 'Heterogene Studien vor 2025', 'Ganzer Pflanzenzyklus einschließlich Nichtlicht-Verbrauchern.', 'Kehrwert des Mittels ist nicht der Mittelwert der Kehrwerte.'),

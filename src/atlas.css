@@ -110,6 +110,8 @@
 .atlas-site-detail h2 { font-size: 17px; margin-bottom: 6px; }
 .atlas-site-detail p { font-size: 14px; line-height: 1.55; }
 .atlas-site-detail > div > small { display: block; color: var(--muted); margin-top: 5px; }
+.atlas-water-flow { margin: 7px 0; padding-left: 18px; font-size: 13px; }
+.atlas-water-flow b { margin-right: 3px; }
 .atlas-parts { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
 .atlas-parts button { min-height: 35px; padding: 4px 8px; border-radius: 5px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; font-weight: 700; }
 .atlas-parts button[aria-pressed=true] { background: #e5edda; border-color: #668152; }
