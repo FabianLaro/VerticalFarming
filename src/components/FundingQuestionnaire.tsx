@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import type { ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, Check, Circle, ClipboardText, FileText, Minus, X } from '@phosphor-icons/react'
 import { INITIAL_DECISION, OPTIONS } from './Brief'
 import { editableAnswers, evaluateFunding, fundingAnswerLabel, fundingChecks, fundingQuestions, hasFundingPriorities, siteChecks } from '../lib/funding-questionnaire'
@@ -14,13 +13,13 @@ type QuestionnaireProps = {
   answers: Answers
   review: FundingReview
   onReview: (values: Partial<FundingReview>) => void
-  optionComparison: ReactNode
   input: Input
   index: number
   onAnswer: (id: QuestionId, value: string | number | undefined) => void
   onUpdateScenario: (key: InputKey, value: number) => void
   onGoTo: (index: number) => void
   onGenerate: () => void
+  onQuickStart: () => void
   onManual: () => void
 }
 
@@ -47,7 +46,7 @@ function ModelComparison({ rows, unit }: { rows: { label: string; value: number 
   </dl>
 }
 
-export function FundingQuestionnaire({ answers, review, onReview, optionComparison, input, index, onAnswer, onGoTo, onGenerate, onManual, onUpdateScenario }: QuestionnaireProps) {
+export function FundingQuestionnaire({ answers, review, onReview, input, index, onAnswer, onGoTo, onGenerate, onQuickStart, onManual, onUpdateScenario }: QuestionnaireProps) {
   const question = fundingQuestions[index]
   const last = index === fundingQuestions.length - 1
   const prioritiesReady = hasFundingPriorities(review)
@@ -79,10 +78,10 @@ export function FundingQuestionnaire({ answers, review, onReview, optionComparis
   return <section className="funding-quiz no-print" aria-label="Fragenkatalog zur Förderung">
     <aside className="funding-quiz-sidebar">
       <ClipboardText size={31} weight="duotone" aria-hidden="true" />
-      <h2>Fragenkatalog</h2>
-      <p>Bewerte das Förderziel und die Gegebenheiten der Stadt. Aus deinen Antworten entsteht ein Decision Brief.</p>
-      <p className="funding-note">Teste deine Annahmen für Dinslaken 2040. Deine Antworten und Werte werden beim Erstellen des Briefs gespeichert.</p>
-      <button type="button" className="funding-manual-link" onClick={onManual}>Brief manuell bearbeiten <ArrowRight size={15} /></button>
+      <h2>Ihr entscheidet für Dinslaken</h2>
+      <p>In einer Vertical Farm wächst Salat drinnen auf mehreren Ebenen unter Lampen. Soll die Stadt mehrere Farmen fördern, erst eine testen oder eine andere Versorgung unterstützen?</p>
+      <p className="funding-note">Wählt Beispielwerte oder „Noch offen“, wenn ihr etwas nicht wisst. Danach begründet ihr eure Wahl mit eigenen Argumenten.</p>
+      <button type="button" className="funding-manual-link" onClick={onManual}>Beispielbrief öffnen <ArrowRight size={15} /></button>
     </aside>
     <div className="funding-question">
       <div className="funding-progress">
@@ -93,9 +92,6 @@ export function FundingQuestionnaire({ answers, review, onReview, optionComparis
       <h2 id="funding-question-title" ref={heading} tabIndex={-1}>{question.statement}</h2>
       <p className="funding-context">{question.context}</p>
       {question.id === 'alternative' && <p className="funding-limit-feedback">Dein Ziel: {fundingAnswerLabel(fundingQuestions[0], answers.goal)}</p>}
-      {fields && <div className="funding-scenario-controls" role="group" aria-label="Modellwerte anpassen">
-        {fields.map(field => <ScenarioControl key={field} field={field} input={input} update={onUpdateScenario} label={fieldLabels[field]} />)}
-      </div>}
       {site && <div className="funding-model-note">
         {question.id === 'building' ? <ModelComparison unit="m²" rows={[
           { label: 'Platzbedarf auf dem Boden', value: input.footprint },
@@ -133,10 +129,9 @@ export function FundingQuestionnaire({ answers, review, onReview, optionComparis
         }}>{question.id === 'goal' ? <span className="funding-goal-dot" aria-hidden="true" /> : <Icon size={21} weight="bold" aria-hidden="true" />}{option.label}</button>
       })}</div>
       {question.id === 'goal' && selected && <>
-        {optionComparison}
         <fieldset className="funding-priorities">
           <legend>Zwei wichtigste Kriterien</legend>
-          <p>Wähle die Kriterien für dein Förderziel und begründe die Auswahl vor der Empfehlung.</p>
+          <p>Was ist euch bei der Entscheidung besonders wichtig? Wählt zwei Punkte.</p>
           <div className="priority-choices">{INITIAL_DECISION.criteria.map(({ id, label }) => {
             const checked = review.priorities.includes(id)
             return <label className={checked ? 'priority-choice chosen' : 'priority-choice'} key={id}>
@@ -146,44 +141,50 @@ export function FundingQuestionnaire({ answers, review, onReview, optionComparis
             </label>
           })}</div>
           <label className="decision-field">Warum diese beiden?
-            <textarea rows={2} maxLength={180} value={review.priorityReason}
+            <textarea rows={2} maxLength={180} placeholder="Uns sind diese beiden Punkte wichtig, weil …" value={review.priorityReason}
               onChange={event => onReview({ priorityReason: event.target.value })} />
           </label>
         </fieldset>
       </>}
-      {custom && <label className="funding-custom-value" key={question.id}>
-        <span>{custom.label} ({custom.unit})</span>
-        <input type="number" ref={numericInput} min={custom.min} max={Number.MAX_SAFE_INTEGER} step="any" inputMode="decimal" placeholder="Wert eingeben" defaultValue={typeof selected === 'number' ? selected : ''} onChange={event => {
-          const field = event.currentTarget
-          onAnswer(question.id, field.value && field.validity.valid ? field.valueAsNumber : undefined)
-        }} />
-      </label>}
-      {question.id === 'power' && <label className="funding-custom-value">
-        <span>Spitzenlast im Planspiel (kW)</span>
-        <input type="number" step="any" min="0" max={Number.MAX_SAFE_INTEGER} inputMode="decimal" placeholder="Noch offen" value={review.peakPower ?? ''}
-          onChange={event => onReview({ peakPower: event.currentTarget.validity.valid && event.currentTarget.valueAsNumber > 0 ? event.currentTarget.valueAsNumber : undefined })} />
-      </label>}
-      {question.id === 'climate' && selected === 'custom' && checks && <div className="funding-model-note">
-        <ScenarioControl field="gridFactor" input={input} update={onUpdateScenario} label={fieldLabels.gridFactor} />
-        <p role="status"><strong>{number(checks.customEmissions, 3)} kg CO₂eq/kg</strong> mit deinem Strommix</p>
-      </div>}
-      {question.id === 'climate' && selected && <fieldset className="funding-priorities">
-        <legend>Vergleichbare Klimabilanz im Planspiel</legend>
-        <p>Für das Förderurteil zählt die ganze Lieferkette. Vergleiche dieselbe Salatmenge, Saison und Bilanzgrenze. Ohne Beleg bleibt der Nachweis offen.</p>
-        <label className="decision-field">Ergebnis der Klimaprüfung
-          <select value={review.climateResult ?? ''} onChange={event => {
-            const value = event.target.value
-            onReview({ climateResult: value === 'meets' || value === 'misses' ? value : undefined, climateEvidence: '' })
-          }}>
-            <option value="">Noch offen</option>
-            <option value="meets">Klimaziel erreicht</option>
-            <option value="misses">Klimaziel verfehlt</option>
-          </select>
-        </label>
-        {review.climateResult && <label className="decision-field">Prüfwert und Beleg aus dem Planspiel
-          <input type="text" maxLength={100} value={review.climateEvidence} onChange={event => onReview({ climateEvidence: event.target.value })} />
+      {(fields || custom) && <details key={question.id} className="atlas-details funding-adjustments">
+        <summary>{question.id === 'climate' ? 'Genauer prüfen und Werte ändern' : 'Eigene Werte eingeben'}</summary>
+        {fields && <div className="funding-scenario-controls" role="group" aria-label="Modellwerte anpassen">
+          {fields.map(field => <ScenarioControl key={field} field={field} input={input} update={onUpdateScenario} label={fieldLabels[field]} />)}
+        </div>}
+        {custom && <label className="funding-custom-value" key={question.id}>
+          <span>{custom.label} ({custom.unit})</span>
+          <input type="number" ref={numericInput} min={custom.min} max={Number.MAX_SAFE_INTEGER} step="any" inputMode="decimal" placeholder="Wert eingeben" defaultValue={typeof selected === 'number' ? selected : ''} onChange={event => {
+            const field = event.currentTarget
+            onAnswer(question.id, field.value && field.validity.valid ? field.valueAsNumber : undefined)
+          }} />
         </label>}
-      </fieldset>}
+        {question.id === 'power' && <label className="funding-custom-value">
+          <span>Spitzenlast im Planspiel (kW)</span>
+          <input type="number" step="any" min="0" max={Number.MAX_SAFE_INTEGER} inputMode="decimal" placeholder="Noch offen" value={review.peakPower ?? ''}
+            onChange={event => onReview({ peakPower: event.currentTarget.validity.valid && event.currentTarget.valueAsNumber > 0 ? event.currentTarget.valueAsNumber : undefined })} />
+        </label>}
+        {question.id === 'climate' && selected === 'custom' && checks && <div className="funding-model-note">
+          <ScenarioControl field="gridFactor" input={input} update={onUpdateScenario} label={fieldLabels.gridFactor} />
+          <p role="status"><strong>{number(checks.customEmissions, 3)} kg CO₂eq/kg</strong> mit deinem Strommix</p>
+        </div>}
+        {question.id === 'climate' && selected && <fieldset className="funding-priorities">
+          <legend>Klimabilanz prüfen</legend>
+          <p>Vergleicht dieselbe Salatmenge in derselben Jahreszeit. Rechnet bei beiden Varianten die gleichen Schritte mit ein, etwa Anbau und Transport.</p>
+          <label className="decision-field">Ergebnis der Klimaprüfung
+            <select value={review.climateResult ?? ''} onChange={event => {
+              const value = event.target.value
+              onReview({ climateResult: value === 'meets' || value === 'misses' ? value : undefined, climateEvidence: '' })
+            }}>
+              <option value="">Noch offen</option>
+              <option value="meets">Klimaziel erreicht</option>
+              <option value="misses">Klimaziel verfehlt</option>
+            </select>
+          </label>
+          {review.climateResult && <label className="decision-field">Prüfwert und Beleg aus dem Planspiel
+            <input type="text" maxLength={100} value={review.climateEvidence} onChange={event => onReview({ climateEvidence: event.target.value })} />
+          </label>}
+        </fieldset>}
+      </details>}
       {question.id === 'building' && site && site.hall !== null && <p className="funding-limit-feedback" role="status">{site.hallTooSmall
         ? `Die Halle ist ${number(input.footprint - site.hall, 1)} m² zu klein für diese Farm.`
         : 'Die Grundfläche reicht im Modell. Hallenhöhe und Anschlüsse musst du vor Ort prüfen.'}</p>}
@@ -208,7 +209,9 @@ export function FundingQuestionnaire({ answers, review, onReview, optionComparis
         ? 'Schon der Strom liegt über deiner Grenze.'
         : 'Der Strom liegt innerhalb deiner Grenze. Dazu kommen die übrigen Kosten.'}</p>}
       <div className="funding-question-actions">
-        <button type="button" className="atlas-outline" disabled={index === 0} onClick={() => onGoTo(index - 1)}><ArrowLeft size={17} /> Zurück</button>
+        {index > 0 && <button type="button" className="atlas-outline" onClick={() => onGoTo(index - 1)}><ArrowLeft size={17} /> Zurück</button>}
+        {index === 0 && canContinue && firstIncomplete >= 1 &&
+          <button type="button" className="atlas-text" onClick={onQuickStart}>Ohne Standortdaten zum Brief</button>}
         <button type="button" className="atlas-primary" disabled={!canContinue} onClick={next}>{last && firstIncomplete === -1 ? 'Decision Brief erstellen' : 'Weiter'} {last && firstIncomplete === -1 ? <FileText size={17} /> : <ArrowRight size={17} />}</button>
       </div>
     </div>
@@ -231,14 +234,14 @@ export function FundingSummary({ outcome, answers, onEdit, onManual, onRecalcula
     <section className="funding-result">
       <div className="funding-result-option" aria-hidden="true">{option.id}</div>
       <div>
-        <p>Empfehlung aus euren Antworten</p>
+        <p>Vorschlag aus dem Fragebogen</p>
         <h2 ref={heading} tabIndex={-1}>{option.label}</h2>
         <p>{outcome.explanation}</p>
       </div>
       <button type="button" className="atlas-outline" onClick={() => onEdit(0)}>Antworten ändern <ArrowRight size={17} /></button>
     </section>
-    {outcome.expansionGaps.length > 0 && <details className="atlas-details funding-expansion-gaps" open>
-      <summary>Was fehlt für Option A?</summary>
+    {outcome.expansionGaps.length > 0 && <details className="atlas-details funding-expansion-gaps">
+      <summary>Was fehlt für die Förderung mehrerer Farmen?</summary>
       <ul>{outcome.expansionGaps.map(({ field, text }) => <li key={field}>
         <button type="button" className="atlas-text" onClick={() => onEdit(fundingQuestions.findIndex(question => question.id === field))}>{text} <ArrowRight size={14} aria-hidden="true" /></button>
       </li>)}</ul>
@@ -248,15 +251,11 @@ export function FundingSummary({ outcome, answers, onEdit, onManual, onRecalcula
       <button type="button" className="atlas-text" onClick={onRecalculate}>Mit Werten aus „Vergleich“ neu berechnen</button>
     </div>}
     <div className="funding-result-details">
-      <details className="atlas-details"><summary>Antworten und Entscheidungsregeln</summary>
-        <div className="funding-rule-notes">
-          <p>Eine überschrittene Stromkostengrenze oder fehlende Grundvoraussetzungen sprechen gegen das aktuelle Szenario. Bei einem erkennbaren Ansatz und offenen Nachweisen kommt ein Pilot infrage. Breite Förderung setzt im Planspiel eine passende Spitzenlast und einen belegten Klimavergleich voraus. Ein realer Ausbau braucht Nachweise an mehreren Standorten.</p>
-          <p>Offene Angaben: {outcome.gaps.length ? outcome.gaps.join(', ') : 'Keine Antwort als unklar markiert.'}</p>
-        </div>
+      <details className="atlas-details"><summary>Eure Antworten ansehen</summary>
         <ul className="funding-review-list">{fundingQuestions.map((question, index) => <li key={question.id}><button type="button" className="atlas-text" onClick={() => onEdit(index)}>{question.topic}</button><span>{fundingAnswerLabel(question, answers[question.id])}</span></li>)}</ul>
-        <p>Erneutes Erstellen aktualisiert den Brief aus den Antworten. Name und Datum bleiben erhalten.</p>
+        <p>Wenn ihr neu rechnet, bleiben eure Argumente und eure Antwort auf den Einwand im Brief. Prüft beides, falls sich der Vorschlag ändert.</p>
       </details>
-      <button type="button" className="atlas-text" onClick={onManual}>Manuellen Brief öffnen</button>
+      <button type="button" className="atlas-text" onClick={onManual}>Beispielbrief öffnen</button>
     </div>
   </div>
 }

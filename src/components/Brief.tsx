@@ -34,9 +34,9 @@ export interface DecisionState {
 }
 
 export const OPTIONS = [
-  { id: 'A', label: 'Breite Investitionsförderung', description: 'Viele Anlagen schnell aufbauen. Energieversorgung und Absatz müssen tragfähig sein.' },
-  { id: 'B', label: 'Befristete Pilotförderung', description: 'Messdaten und Gebäudekopplung prüfen. Ergebnisse offenlegen und Abbruchkriterien festlegen.' },
-  { id: 'C', label: 'Andere Versorgung fördern', description: 'Freiland, Gewächshaus oder Logistik stärken. Den entgangenen Sondernutzen abwägen.' },
+  { id: 'A', label: 'Breite Investitionsförderung', description: 'Die Stadt unterstützt den Bau mehrerer Vertical Farms.' },
+  { id: 'B', label: 'Befristete Pilotförderung', description: 'Die Stadt finanziert einen Testbetrieb für eine begrenzte Zeit.' },
+  { id: 'C', label: 'Andere Versorgung fördern', description: 'Die Stadt unterstützt zum Beispiel Gewächshäuser oder regionalen Anbau.' },
 ] as const
 
 export const INITIAL_DECISION: DecisionState = {
@@ -59,17 +59,17 @@ export const INITIAL_DECISION: DecisionState = {
     { id: 'feasibility', label: 'Umsetzbarkeit', symbol: '±', evidence: 'Gebäudekopplung möglich, lokal ungeprüft [F].', source: 'fraunhofer' },
   ],
   pros: [
-    'Ebenen erhöhen Ernte je Gebäudegrundfläche [M].',
-    'Nährlösung kann wiederverwendet werden [D].',
-    'Pilot prüft Gebäudekopplung vor Ausbau [F].',
+    'Mehr Etagen bringen mehr Ernte pro Bodenfläche [M].',
+    'Wasser und Nährstoffe lassen sich wiederverwenden [D].',
+    'Anbau ist unabhängig vom Wetter steuerbar [D].',
   ],
   cons: [
-    'Künstliche Beleuchtung benötigt viel Energie [P,S].',
-    'Lokale Vollkosten und Absatz sind unbelegt [M].',
-    'Salat deckt nur einen Ernährungsausschnitt [D].',
+    'Die Lampen brauchen viel Strom [P,S].',
+    'Zusätzlich zum Strom kosten auch Bau und Personal Geld [M].',
+    'Blattgemüse deckt nur einen Teil der Ernährung ab [D].',
   ],
-  counterargument: 'Förderung könnte energieintensive Produktion dauerhaft festschreiben.',
-  response: 'Befristung, offene Messdaten und Abbruchkriterien erlauben Korrekturen.',
+  counterargument: '',
+  response: 'Wir würden vorab eine Stromgrenze für den Test festlegen.',
   uncertainty: 'Standortspezifische Ganzjahresvollkosten und vollständige Ökobilanz fehlen.',
   conflictQuestion: 'Wer trägt Mehrkosten, wenn bezahlbares Gemüse und Klimaziele kollidieren?',
   comparisonQuestion: 'Wann erreicht ein regionales Gewächshaus dasselbe Förderziel mit weniger Energie?',
@@ -77,6 +77,17 @@ export const INITIAL_DECISION: DecisionState = {
 
 const number = (value: number, digits = 1) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: digits }).format(value)
 const dateLabel = (date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split('-').reverse().join('.') : date
+
+export function argumentFocus(state: DecisionState) {
+  const reason = state.option === 'C' ? 'cons' : 'pros'
+  const objection = reason === 'pros' ? 'cons' : 'pros'
+  return { reason, objection, reasonText: state[reason][0], objectionText: state.counterargument.trim() || state[objection][0] } as const
+}
+
+function argumentLabel(state: DecisionState, side: 'pros' | 'cons', index: number) {
+  if (index !== 0) return ''
+  return side === argumentFocus(state).reason ? 'Wichtigster Grund' : state.counterargument.trim() ? '' : 'Stärkster Einwand'
+}
 
 export function recommendationSentences(state: DecisionState): number {
   // Decimal points are not sentence boundaries; a sentence ending in a year is.
@@ -98,20 +109,21 @@ export function briefText(state: DecisionState, input: Input, result: Result): s
   const chart = footprintComparison(input, result)
   return [
     'STADTLABOR 2040 Decision Brief Soll Dinslaken Vertical Farming fördern?',
-    'Szenariomodell', state.names, '·', dateLabel(state.date),
-    'Öffentliches Ziel', state.goal,
+    'Planspiel', state.names, '·', dateLabel(state.date),
+    'Ziel der Stadt', state.goal,
     `${state.option} · ${OPTIONS.find(option => option.id === state.option)?.label}`,
     ...(state.siteBasis ? ['Eure Standortangaben', state.siteBasis] : []),
     ...(state.scenarioBasis ? ['Modellrechnung', state.scenarioBasis] : []),
     'Empfehlung und zwei Bedingungen', state.recommendation, ...state.conditions,
-    'Drei Argumente dafür', ...state.pros, 'Drei Argumente dagegen', ...state.cons,
+    'Für die Förderung', ...state.pros.flatMap((argument, index) => [argumentLabel(state, 'pros', index), argument]),
+    'Gegen die Förderung', ...state.cons.flatMap((argument, index) => [argumentLabel(state, 'cons', index), argument]),
     chart.title, chart.caption,
     chart.rows.map(row => `${row.label} ${number(row.footprint, 0)}`).join(' '), chart.note,
-    'Fünf Kriterien: Urteile, keine Messwerte',
+    'Bewertung nach fünf Kriterien',
     ...state.criteria.map(criterion => `${criterion.label} ${criterion.symbol} ${criterionEvidence(criterion)}`),
     '+ dafür · ± bedingt · − dagegen · ? Daten fehlen',
     'Zwei Prioritäten', state.priorities.map(id => state.criteria.find(criterion => criterion.id === id)?.label).join(', '), state.priorityReason,
-    'Stärkstes Gegenargument', state.counterargument, 'Antwort', state.response,
+    ...(state.counterargument.trim() ? ['Stärkster Einwand', state.counterargument] : []), 'Unsere Antwort auf den Einwand', state.response,
     'Größte Unsicherheit', state.uncertainty,
     'Frage zum Zielkonflikt', state.conflictQuestion, 'Frage zum Vergleich', state.comparisonQuestion,
     'Kurzbelege', decisionReferences(state),
@@ -146,40 +158,49 @@ export function Brief({ state, input, result, valid, onSource }: BriefProps) {
 
   const chart = footprintComparison(input, result)
   const maxFootprint = Math.max(...chart.rows.map(row => row.footprint), 1)
+  function renderArguments(side: 'pros' | 'cons', title: string) {
+    return <section><h3>{title}</h3><ul>{state[side].map((argument, index) => {
+      const label = argumentLabel(state, side, index)
+      return <li key={index}>{label && <><strong>{label}</strong> </>}{cite(argument)}</li>
+    })}</ul></section>
+  }
   return <article className="brief" id="decision-brief" aria-label="Druckbarer Decision Brief">
     <header className="brief-header">
       <div><span className="brief-brand">STADTLABOR 2040</span><span>Decision Brief</span></div>
       <p>{state.names} · {dateLabel(state.date)}</p>
     </header>
     <h1>Soll Dinslaken Vertical Farming fördern?</h1>
-    <p className="brief-model-label">Szenariomodell</p>
-    {!valid && <p className="brief-invalid">Noch nicht abgabefertig: Wort-, Satz- oder Prioritätenvorgabe prüfen.</p>}
+    <p className="brief-model-label">Planspiel</p>
+    {!valid && <p className="brief-invalid no-print">Entwurf</p>}
     <section className="brief-recommendation">
       <h2>{state.option} · {OPTIONS.find(option => option.id === state.option)?.label}</h2>
-      <p><strong>Öffentliches Ziel</strong> {state.goal}</p>
-      {state.siteBasis && <p><strong>Eure Standortangaben</strong> {cite(state.siteBasis)}</p>}
-      {state.scenarioBasis && <p><strong>Modellrechnung</strong> {cite(state.scenarioBasis)}</p>}
+      <p><strong>Ziel der Stadt</strong> {state.goal}</p>
       <h3>Empfehlung und zwei Bedingungen</h3>
       <p>{cite(state.recommendation)}</p>
       <ol>{state.conditions.map((condition, index) => <li key={index}>{cite(condition)}</li>)}</ol>
     </section>
     <div className="brief-arguments">
-      <section><h3>Drei Argumente dafür</h3><ul>{state.pros.map((argument, index) => <li key={index}>{cite(argument)}</li>)}</ul></section>
-      <section><h3>Drei Argumente dagegen</h3><ul>{state.cons.map((argument, index) => <li key={index}>{cite(argument)}</li>)}</ul></section>
+      {renderArguments('pros', 'Für die Förderung')}
+      {renderArguments('cons', 'Gegen die Förderung')}
+    </div>
+    <div className="brief-closing">
+      {state.counterargument.trim() && <p><strong>Stärkster Einwand</strong> {cite(state.counterargument)}</p>}
+      <p><strong>Unsere Antwort auf den Einwand</strong> {cite(state.response)}</p>
     </div>
     <figure className="brief-chart">
       <figcaption><strong>{chart.title}</strong><span>{cite(chart.caption)}</span></figcaption>
       {chart.rows.map(row => <div key={row.system} className={`brief-chart-row atlas-system-${row.system}`}><span>{row.label}</span><div><i style={{ width: `${row.footprint / maxFootprint * 100}%` }} /></div><strong>{number(row.footprint, 0)}</strong></div>)}
       <p>{chart.note}</p>
     </figure>
+    {state.siteBasis && <p><strong>Eure Standortangaben</strong> {cite(state.siteBasis)}</p>}
+    {state.scenarioBasis && <p><strong>Modellrechnung</strong> {cite(state.scenarioBasis)}</p>}
     <section className="brief-criteria-section">
-      <h3>Fünf Kriterien: Urteile, keine Messwerte</h3>
+      <h3>Bewertung nach fünf Kriterien</h3>
       <div className="brief-criteria">{state.criteria.map(criterion => <div key={criterion.id}><strong>{criterion.label}</strong><b>{criterion.symbol}</b><p>{cite(criterionEvidence(criterion))}</p></div>)}</div>
       <p className="brief-legend">+ dafür · ± bedingt · − dagegen · ? Daten fehlen</p>
     </section>
     <div className="brief-closing">
       <p><strong>Zwei Prioritäten:</strong> {state.priorities.map(id => state.criteria.find(criterion => criterion.id === id)?.label).join(', ')}. {state.priorityReason}</p>
-      <p><strong>Stärkstes Gegenargument:</strong> {cite(state.counterargument)} <strong>Antwort:</strong> {cite(state.response)}</p>
       <p><strong>Größte Unsicherheit:</strong> {state.uncertainty}</p>
       <p><strong>Frage zum Zielkonflikt:</strong> {state.conflictQuestion}</p>
       <p><strong>Frage zum Vergleich:</strong> {state.comparisonQuestion}</p>

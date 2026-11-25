@@ -67,15 +67,15 @@ export const editableAnswers = {
 type EditableQuestionId = keyof typeof editableAnswers
 
 export const fundingQuestions = [
-  { id: 'goal', topic: 'Öffentliches Förderziel', statement: 'Was soll die Förderung für die Stadt in erster Linie erreichen?', context: 'Wähle das Ziel, an dem du die drei Förderoptionen messen möchtest.', options: Object.entries(goals).map(([id, goal]) => ({ id, label: goal.label })) },
-  { id: 'building', topic: 'Platz für die Farm', statement: 'In welche Halle soll die Farm passen?', context: 'Teste eine Hallengröße. Vergleiche sie mit dem Bodenplatz, den die Farm für Pflanzen, Gänge und Technik braucht.', options: exampleChoices(hallSizes, 'm²') },
-  { id: 'power', topic: 'Strom für Licht und Kühlung', statement: 'Wie viel Leistung kann der Stromanschluss liefern?', context: 'Der Anschluss wird in Kilowatt (kW) angegeben. Kilowattstunden (kWh) geben an, wie viel Strom die Farm über einen Zeitraum verbraucht.', options: exampleChoices(powerSizes, 'kW') },
+  { id: 'goal', topic: 'Ziel der Stadt', statement: 'Was soll Dinslaken mit der Förderung erreichen?', context: 'Entscheidet euch für ein Ziel. Daran könnt ihr später eure Argumente messen.', options: Object.entries(goals).map(([id, goal]) => ({ id, label: goal.label })) },
+  { id: 'building', topic: 'Platz für die Farm', statement: 'In welche Halle soll die Farm passen?', context: 'Wählt eine Beispielhalle. Die Anzeige zeigt, ob dort genug Platz für Pflanzen, Gänge und Technik wäre.', options: exampleChoices(hallSizes, 'm²') },
+  { id: 'power', topic: 'Strom für Licht und Kühlung', statement: 'Wie viel Leistung kann der Stromanschluss liefern?', context: 'Lampen, Kühlung und Pumpen brauchen Strom. Wählt einen Beispielanschluss. Je höher der Wert in kW, desto mehr Geräte kann er gleichzeitig versorgen.', options: exampleChoices(powerSizes, 'kW') },
   { id: 'demand', topic: 'Kunden für den Salat', statement: 'Wer könnte den Salat aus der Farm kaufen?', context: 'Wähle eine Kundengruppe für dein Beispiel. Im nächsten Schritt probierst du aus, wie viel Salat sie abnehmen könnte.', options: buyers },
   { id: 'sales', topic: 'Salat pro Woche', statement: 'Wie viel Salat könnten deine Kunden pro Woche abnehmen?', context: 'Teste eine Abnahmemenge und vergleiche sie mit der durchschnittlichen Ernte pro Woche.', options: exampleChoices(weeklyOrders, 'kg') },
   { id: 'cost', topic: 'Stromkosten je Kilogramm', statement: 'Wie viel darf der Strom für ein Kilogramm Salat kosten?', context: 'Lege für dein Planspiel eine Kostengrenze fest. Dazu kommen später zum Beispiel noch Personal- und Baukosten.', options: costOptions },
-  { id: 'climate', topic: 'CO₂-Beitrag des Stroms', statement: 'Mit welchem Strom soll die Farm laufen?', context: 'Teste zwei Beispielwerte oder gib an, wie viele Treibhausgase der Strom in deinem Szenario verursacht.', options: climateOptions },
+  { id: 'climate', topic: 'CO₂-Beitrag des Stroms', statement: 'Mit welchem Strom soll die Farm laufen?', context: 'Je nachdem, wie der Strom erzeugt wird, entstehen unterschiedlich viele Treibhausgase. Vergleicht die beiden Beispiele, wenn ihr euch unsicher seid.', options: climateOptions },
   { id: 'alternative', topic: 'Gewächshaus und Freiland', statement: 'Könnten Gewächshäuser oder Felder das gleiche Ziel erreichen?', context: 'Denk an das Ziel aus Frage 1. Für die Versorgung kommt es zum Beispiel darauf an, ob genug Salat zur richtigen Jahreszeit verfügbar wäre.', options: alternativeOptions },
-  { id: 'scale', topic: 'Ergebnis des Farmtests', statement: 'Hat die Farm im Test gut funktioniert?', context: 'Stell dir vor, die Stadt hat die Farm ausprobiert. Gab es genug Salat, blieben die Kosten im Rahmen und wurde das Klimaziel erreicht?', options: scaleOptions },
+  { id: 'scale', topic: 'Ergebnis des Farmtests', statement: 'Hat die Farm im Test gut funktioniert?', context: 'Stellt euch einen Testbetrieb vor. Hat er genug Salat geliefert, die Kostengrenze eingehalten und das Klimaziel erreicht? Wenn ihr dazu keine Annahme habt, wählt „Noch offen“.', options: scaleOptions },
 ] as const
 
 export type QuestionId = typeof fundingQuestions[number]['id']
@@ -91,6 +91,11 @@ export type Answers = Partial<{
   alternative: typeof alternativeOptions[number]['id']
   scale: typeof scaleOptions[number]['id']
 }>
+
+export const openSiteAnswers: Answers = {
+  building: 'unknown', power: 'unknown', demand: 'unknown', sales: 'unknown',
+  cost: 'open', climate: 'both', alternative: 'open', scale: 'unknown',
+}
 
 export type FundingReview = {
   priorities: CriterionId[]
@@ -185,39 +190,27 @@ export function restoreAnswers(value: unknown): Answers {
   }))
 }
 
-const options: Record<DecisionState['option'], Pick<DecisionState, 'recommendation' | 'conditions' | 'pros' | 'cons' | 'counterargument' | 'response'>> = {
+const options: Record<DecisionState['option'], Pick<DecisionState, 'recommendation' | 'conditions'>> = {
   A: {
-    recommendation: 'Wenn der Probebetrieb wie angenommen gelingt, sollte die Stadt eine breitere Förderung prüfen.',
+    recommendation: 'Nach erfolgreichem Test sollte Dinslaken prüfen, ob es weitere Farmen fördert.',
     conditions: [
-      'Förderung setzt je Standort geprüfte Anschlüsse, Vollkosten und Abnahmeverträge voraus.',
-      'Die Stadt prüft jährlich Liefermengen, Vollkosten und Klimabilanz gegen vorab festgelegte Ziele.',
+      'Vor dem Bau prüft die Stadt Stromanschluss, Gesamtkosten und zugesagte Abnahmemengen.',
+      'Die Stadt prüft jährlich Liefermengen, Kosten und Klimabilanz.',
     ],
-    pros: ['Gestapelte Ebenen erhöhen den potenziellen Flächenertrag [P].', 'Die Umweltbedingungen im Anbau lassen sich kontrollieren [D].', 'Gebäudekopplung eröffnet standortabhängige Synergien [F].'],
-    cons: ['Kunstlicht erhöht den Strombedarf [S].', 'Modellstromkosten decken nur einen Teil der Vollkosten [M].', 'Ertragswerte einzelner Anlagen sind nur begrenzt übertragbar [P].'],
-    counterargument: 'Ein breiter Ausbau setzt öffentliche Mittel langfristig fest.',
-    response: 'Für jeden Standort gelten eigene Nachweise und überprüfbare Förderziele [A].',
   },
   B: {
-    recommendation: 'Die Stadt sollte einen befristeten Pilotbetrieb fördern, sobald Standort, Stromversorgung und Absatz nachgewiesen sind.',
+    recommendation: 'Dinslaken sollte eine Farm für begrenzte Zeit testen, wenn Halle, Strom und Abnehmer gesichert sind.',
     conditions: [
       'Vor Förderung werden Gebäude, Netzanschluss und Abnahmemenge belegt.',
-      'Nach zwölf Monaten entscheiden Liefermenge, Vollkosten und vergleichbare Klimabilanz über Fortführung oder Abbruch.',
+      'Nach zwölf Monaten prüft die Stadt Ernte, Gesamtkosten und Klimabilanz und entscheidet, ob der Test weiterläuft.',
     ],
-    pros: ['Ein befristeter Pilot macht den Ausbau überprüfbar [A].', 'Messdaten erlauben Einordnung von Ertrag und Energiebedarf [P].', 'Gebäudeintegration kann am Standort erprobt werden [F].'],
-    cons: ['Kunstlicht und Klimatisierung bleiben energieintensiv [S].', 'Szenariorechnungen ersetzen keine Betriebsmessung [M].', 'Gewächshaus und Freiland bleiben relevante Vergleichssysteme [B].'],
-    counterargument: 'Der Pilot könnte zum Dauerzuschuss werden.',
-    response: 'Befristung und vorher beschlossene Abbruchkriterien begrenzen das Risiko [A].',
   },
   C: {
-    recommendation: 'Die Stadt sollte zuerst Gewächshaus oder regionalen Freilandanbau prüfen und die Vertical Farm vorerst zurückstellen.',
+    recommendation: 'Dinslaken sollte zuerst prüfen, ob Gewächshäuser oder regionale Felder das Ziel erreichen.',
     conditions: [
       'Die Alternativen werden bei gleicher Liefermenge und Saison verglichen.',
       'Eine Förderung setzt nachgewiesene Abnahme und tragfähige Vollkosten der gewählten Alternative voraus.',
     ],
-    pros: ['Freiland und Gewächshaus ohne Zusatzlicht nutzen Tageslicht [S].', 'Es gibt Vergleichsdaten für beide Anbausysteme [B].', 'Ein Dachgewächshaus in Oberhausen zeigt mögliche Gebäudekopplung [F].'],
-    cons: ['Freiland bietet saisonale Liefermengen [B].', 'Heizung kann den Energiebedarf im Gewächshaus erhöhen [S].', 'Der potenziell hohe Flächenertrag im Stapelanbau entfällt [P].'],
-    counterargument: 'Eine Vertical Farm könnte auch im Winter kontinuierlich liefern.',
-    response: 'Prüfe, ob ein Gewächshaus oder mehrere Lieferanten dieselbe Versorgung erreichen [B].',
   },
 }
 
@@ -298,7 +291,7 @@ export function evaluateFunding(answers: Answers, input: Input, review: FundingR
     localDetails.length ? localDetails.join(' · ') + ' [M].' : '',
     !localDetails.length ? 'Halle, Stromanschluss und Abnahmemenge sind offen.' : '',
     site.connection === null && localDetails.length ? 'Stromanschluss offen.' : '',
-    judgement.option === 'A' ? 'Erfolgreicher Test und fehlende gleichwertige Bezugsquelle angenommen.' : '',
+    judgement.option === 'A' ? 'Annahme: erfolgreicher Test, keine gleichwertige Alternative.' : '',
     answers.scale === 'failed' ? 'Im Szenario wurden die Ziele im Test verfehlt.' : '',
   ].filter(Boolean).join(' ')
   const draft: DecisionState = {

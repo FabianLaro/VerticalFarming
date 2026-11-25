@@ -108,7 +108,7 @@ export default function App() {
       {stage === 'standort' && <SiteStudy input={input} result={result} onSource={setSource} onCompare={() => navigate('vergleich')} />}
       {stage === 'vergleich' && <ComparePanel input={input} result={result} onSource={setSource} onDecide={() => navigate('entscheidung')} update={(key, value) => setInput(previous => ({ ...previous, [key]: value }))} selectPreset={id => setInput(applyPreset(id))} />}
       {stage === 'entscheidung' && <>
-        <div className="atlas-page-heading no-print"><h1>Wie soll Dinslaken fördern?</h1><p>Wählt ein öffentliches Ziel und begründet eure Entscheidung anhand von fünf Kriterien.</p></div>
+        <div className="atlas-page-heading no-print"><h1>Wie soll Dinslaken fördern?</h1><p>Probiert ein Szenario aus und schreibt eine kurze Empfehlung für die Stadt.</p></div>
         <Decision input={input} result={result} onSource={setSource} session={fundingSession} setSession={setFundingSession} />
         <Conflicts onSource={setSource} />
       </>}

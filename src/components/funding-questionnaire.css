@@ -41,22 +41,19 @@
 .funding-priorities p { font-size: 13px; margin-bottom: 8px; }
 .funding-priorities .decision-field { margin-top: 7px; }
 .funding-priorities .decision-field select { padding: 7px; border: 1px solid var(--line); border-radius: 6px; font: inherit; background: #fff; }
-.funding-question-actions { display: flex; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.funding-question-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.funding-question-actions .atlas-primary { margin-left: auto; }
 .funding-result { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; background: #e7eedc; border: 1px solid #bac9ac; border-radius: 10px; padding: 15px 18px; }
 .funding-result-option { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 7px; background: var(--green); color: #fff; font-size: 23px; font-weight: 800; }
 .funding-result p { font-size: 13px; }
 .funding-result h2 { font-size: 23px; margin-block: 3px; }
 .funding-result-details { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; margin: 8px 0 17px; }
 .funding-result-details > details { border-top: 0; }
-.funding-rule-notes p, .funding-result-details details > p { font-size: 13px; margin-bottom: 5px; }
+.funding-result-details details > p { font-size: 13px; margin-bottom: 5px; }
 .funding-review-list { padding: 0; list-style: none; max-width: 720px; }
 .funding-review-list li { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); gap: 8px; font-size: 13px; }
 .funding-review-list li > span { text-align: right; }
 .funding-manual-nav { margin-bottom: 13px; }
-.generated-fields { margin: 0 0 15px; }
-.generated-fields h2 { font-size: 20px; margin-bottom: 7px; }
-.generated-fields p { font-size: 13px; margin-bottom: 9px; }
-.generated-fields .decision-field { margin-bottom: 10px; }
 .brief-citations { white-space: nowrap; color: #1e5140; }
 .brief-citations button { display: inline; font: inherit; padding: 0 1px; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 @media (max-width: 720px) {
@@ -64,13 +61,11 @@
   .funding-quiz-sidebar { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 9px; align-items: center; }
   .funding-quiz-sidebar h2 { font-size: 20px; }
   .funding-quiz-sidebar p, .funding-quiz-sidebar button { grid-column: 2; }
-  .funding-quiz-sidebar .funding-note { display: none; }
   .funding-answer-grid { grid-template-columns: minmax(0, 1fr); }
   .funding-answer { min-height: 46px; padding: 8px 10px; align-items: center; }
   .funding-result { grid-template-columns: auto minmax(0, 1fr); padding: 10px 12px; }
   .funding-result button { grid-column: 2; justify-self: start; }
   .funding-result-details { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .generated-fields .decision-identification { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }
 @media print {
   .brief-citations { color: inherit; }
@@ -100,3 +95,5 @@
 .funding-model-bars dd { display: grid; gap: 4px; margin: 0; font-size: 13px; }
 .funding-model-bars dd span { display: block; height: 5px; background: #4c7555; border-radius: 3px; }
 .funding-model-bars > div + div dd span { background: #84683d; }
+
+.funding-adjustments > :not(summary) { margin-block: 6px 10px; }

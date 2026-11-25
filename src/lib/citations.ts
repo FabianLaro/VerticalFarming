@@ -24,6 +24,20 @@ export function hasCitation(text: string): boolean {
     .some(match => match[1].split(',').every(marker => sourceIdForMarker(marker.trim())))
 }
 
+export function splitArgument(argument: string) {
+  const match = /(?:^| )\[([A-Z0-9]+(?:,\s*[A-Z0-9]+)*)\]([.!?]?)$/u.exec(argument)
+  const sources = match?.[1].split(',').map(marker => sourceIdForMarker(marker.trim()))
+  if (!match || !sources?.every(id => id !== undefined)) return { text: argument, sources: [] }
+  return { text: argument.slice(0, match.index) + match[2], sources }
+}
+
+export function citeArgument(text: string, sources: string[]) {
+  if (!sources.length) return text
+  const punctuation = text.match(/[.!?]$/u)?.[0] ?? ''
+  const markers = sources.map(id => citationMarker(id).slice(1, -1)).join(',')
+  return [text.replace(/[.!?]$/u, ''), `[${markers}]${punctuation}`].filter(Boolean).join(' ')
+}
+
 export function citationMarker(sourceId: string | null): string {
   const marker = sourceId && getSource(sourceId) && sourceMarkers[sourceId]
   return marker ? `[${marker}]` : '[Quelle offen]'
