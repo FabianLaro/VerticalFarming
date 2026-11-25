@@ -80,7 +80,7 @@ export function FundingQuestionnaire({ answers, review, onReview, input, index, 
       <ClipboardText size={31} weight="duotone" aria-hidden="true" />
       <h2>Ihr entscheidet für Dinslaken</h2>
       <p>In einer Vertical Farm wächst Salat drinnen auf mehreren Ebenen unter Lampen. Soll die Stadt mehrere Farmen fördern, erst eine testen oder eine andere Versorgung unterstützen?</p>
-      <p className="funding-note">Wählt Beispielwerte oder „Noch offen“, wenn ihr etwas nicht wisst. Danach begründet ihr eure Wahl mit eigenen Argumenten.</p>
+      <p className="funding-note">Wählt Beispielwerte oder „Noch offen“, wenn ihr etwas nicht wisst. Danach zeigt der Brief passende Argumente dafür und dagegen mit Quellen.</p>
       <button type="button" className="funding-manual-link" onClick={onManual}>Beispielbrief öffnen <ArrowRight size={15} /></button>
     </aside>
     <div className="funding-question">
@@ -253,7 +253,7 @@ export function FundingSummary({ outcome, answers, onEdit, onManual, onRecalcula
     <div className="funding-result-details">
       <details className="atlas-details"><summary>Eure Antworten ansehen</summary>
         <ul className="funding-review-list">{fundingQuestions.map((question, index) => <li key={question.id}><button type="button" className="atlas-text" onClick={() => onEdit(index)}>{question.topic}</button><span>{fundingAnswerLabel(question, answers[question.id])}</span></li>)}</ul>
-        <p>Wenn ihr neu rechnet, bleiben eure Argumente und eure Antwort auf den Einwand im Brief. Prüft beides, falls sich der Vorschlag ändert.</p>
+        <p>Mit geänderten Antworten oder Modellwerten berechnet der Brief die Argumente neu.</p>
       </details>
       <button type="button" className="atlas-text" onClick={onManual}>Beispielbrief öffnen</button>
     </div>

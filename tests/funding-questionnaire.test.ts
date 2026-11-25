@@ -135,6 +135,28 @@ describe('Standortfragebogen für die Förderentscheidung', () => {
     assert.equal(assess({ ...allVerified, sales: 'medium' })?.option, 'B')
   })
 
+  it('liefert zu den Antworten passende Argumente, Belege und eine Antwort auf den Einwand', () => {
+    const pilot = assess({ ...allVerified, sales: 'medium' })!
+    assert.match(pilot.draft.cons[0], /Abnehmer für 2\.000 kg pro Woche \[M\]/u)
+    assert.equal(pilot.draft.response, pilot.discussion.replyToCon)
+
+    const alternative = assess({ ...allVerified, sales: 'medium', building: 'small' })!
+    assert.match(alternative.draft.cons[0], /500 m² zu klein \[M\]/u)
+    assert.equal(alternative.draft.response, alternative.discussion.replyToPro)
+    assert.ok([...alternative.draft.pros, ...alternative.draft.cons, alternative.draft.response].every(hasCitation))
+    assert.match(decisionReferences(alternative.draft), /Eigene Annahmenrechnung/u)
+  })
+
+  it('gewichtet Argumente nach dem Förderziel und den gewählten Kriterien', () => {
+    const supply = assess({ ...allVerified, climate: 'lower' })!
+    assert.match(supply.draft.pros[0], /angenommene Abnahme/u)
+    const climate = assess({ ...allVerified, goal: 'environment', climate: 'lower' }, BASE_INPUT, {
+      priorities: ['environment', 'economy'], priorityReason: 'Klima und Kosten zählen.', climateEvidence: '',
+    })!
+    assert.match(climate.draft.pros[0], /CO₂-Beitrag des Stroms/u)
+    assert.ok(climate.draft.pros.some(argument => argument.includes('Bodenfläche')))
+  })
+
   it('weist fehlende Vollkosten und Ökobilanz in jedem belegten Brief unter dem Wortlimit aus', () => {
     const result = calculate(BASE_INPUT)
     for (const answers of [allVerified, { ...allUnknown, power: 'medium' }, allUnknown, { ...allVerified, cost: 'two' }] satisfies Answers[]) {

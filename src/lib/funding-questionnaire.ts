@@ -273,6 +273,85 @@ function criteriaFor(answers: Answers, site: ReturnType<typeof siteChecks>, chec
   ]
 }
 
+type FundingArgument = {
+  criterion: CriterionId
+  text: string
+  reply: string
+  applies?: boolean
+  weight?: number
+}
+
+function fundingDiscussion(answers: Answers, input: Input, review: FundingReview, site: ReturnType<typeof siteChecks>, checks: ReturnType<typeof fundingChecks>, climateResult: FundingReview['climateResult']) {
+  const goalCriterion = answers.goal === 'learning' ? 'feasibility' : answers.goal === 'environment' ? 'environment' : 'food'
+  const rank = (argument: FundingArgument) => (argument.weight ?? 0)
+    + Number(review.priorities.includes(argument.criterion)) + Number(argument.criterion === goalCriterion)
+  const topThree = (candidates: FundingArgument[]) => candidates.filter(item => item.applies !== false).sort((a, b) => rank(b) - rank(a)).slice(0, 3)
+  const suitableHall = site.hall !== null && !site.hallTooSmall
+  const buyersKnown = answers.demand !== 'unknown'
+  const lowerEmissions = answers.climate === 'lower' && checks.lowerEmissions < checks.referenceEmissions
+    || answers.climate === 'custom' && checks.customEmissions < checks.referenceEmissions
+  const noSite = site.hall === null && site.connection === null && (!buyersKnown || site.orders === null)
+  const pro = topThree([
+    { criterion: 'food', applies: buyersKnown && site.orders !== null && site.unsoldPerWeek === 0, weight: 2,
+      text: `Die angenommene Abnahme deckt ${amount(site.weeklyHarvest, 'kg Salat pro Woche', 1)} [M].`,
+      reply: 'Vor einer Förderung braucht es Zusagen für diese Abnahmemenge [M].' },
+    { criterion: 'feasibility', applies: suitableHall, weight: 2,
+      text: 'Die Beispielhalle bietet genug Bodenfläche für die Farm [M].',
+      reply: 'Höhe, Anschlüsse und Kosten der Halle bleiben zu prüfen [M].' },
+    { criterion: 'economy', applies: checks.limit !== null && !checks.costExceeded, weight: 2,
+      text: `Die Stromkosten von ${amount(checks.electricityPerKg, '€/kg', 2)} liegen im gesetzten Rahmen [M].`,
+      reply: 'Für den Vergleich zählen auch Bau, Personal und weitere Kosten [M].' },
+    { criterion: 'environment', applies: lowerEmissions && climateResult !== 'misses', weight: 2,
+      text: 'Euer Strommix senkt den CO₂-Beitrag des Stroms im Modell [M].',
+      reply: 'Vergleicht die gesamte Klimabilanz inklusive Anlage und Lieferwegen [S].' },
+    { criterion: 'feasibility', applies: answers.goal === 'learning' && answers.scale !== 'failed', weight: 3,
+      text: 'Ein Testbetrieb kann Messdaten für die spätere Förderentscheidung liefern [A].',
+      reply: 'Vergleicht zuerst, welche Fragen sich auch ohne eine eigene Farm klären lassen [A].' },
+    { criterion: 'food', weight: answers.goal === 'supply' ? 2 : 0,
+      text: 'In kontrollierten Innenräumen ist Salatanbau auch im Winter möglich [D].',
+      reply: 'Prüft, ob Gewächshäuser oder andere Lieferanten im Winter dieselbe Menge liefern [B].' },
+    { criterion: 'environment', weight: answers.goal === 'environment' ? 2 : 0,
+      text: input.levels > 1 ? 'Mehrere Etagen bringen im Modell mehr Ernte pro Bodenfläche [M].' : 'Zusätzliche Etagen könnten die Ernte pro Bodenfläche erhöhen [M].',
+      reply: 'Flächenersparnis und zusätzlicher Strombedarf gehören in denselben Vergleich [M].' },
+    { criterion: 'environment', text: 'Die Farm kann Wasser und Nährstoffe im Kreislauf nutzen [D].',
+      reply: 'Auch Gewächshäuser können Wasser und Nährstoffe im Kreislauf nutzen [S].' },
+  ])
+  const con = topThree([
+    { criterion: 'feasibility', applies: site.hallTooSmall, weight: 4,
+      text: `Die Beispielhalle ist ${amount(input.footprint - (site.hall ?? 0), 'm²', 1)} zu klein [M].`,
+      reply: 'Prüft eine größere Halle oder eine kleinere Farm [M].' },
+    { criterion: 'feasibility', applies: site.connectionTooWeak || site.peakTooHigh, weight: 4,
+      text: site.connectionTooWeak ? 'Der Stromanschluss reicht im Modell schon im Durchschnitt nicht aus [M].' : 'Der Anschluss deckt eure höchste angenommene Stromlast nicht [M].',
+      reply: 'Prüft einen stärkeren Anschluss oder senkt den Strombedarf der Farm [M].' },
+    { criterion: 'environment', applies: climateResult === 'misses', weight: 4,
+      text: 'Laut eurer Klimaprüfung verfehlt die Farm das Klimaziel [M].',
+      reply: 'Prüft, wie sich eine andere Stromversorgung auf dieselbe Klimabilanz auswirkt [S].' },
+    { criterion: 'economy', applies: checks.costExceeded, weight: 4,
+      text: `Schon der Strom überschreitet mit ${amount(checks.electricityPerKg, '€/kg', 2)} eure Kostengrenze [M].`,
+      reply: 'Berechnet, wie weit Strombedarf oder Strompreis sinken müssten [M].' },
+    { criterion: 'feasibility', applies: answers.scale === 'failed', weight: 4,
+      text: 'Der Testbetrieb hat im Planspiel seine Ziele verfehlt [M].',
+      reply: 'Klärt die Ursachen und legt vor einem neuen Test messbare Ziele fest [A].' },
+    { criterion: 'feasibility', applies: noSite, weight: 3,
+      text: 'Halle, Stromanschluss und gesicherte Abnahme sind im Planspiel offen [M].',
+      reply: 'Prüft zuerst Halle, Stromanschluss und mögliche Abnehmer [M].' },
+    { criterion: 'food', applies: Boolean(site.unsoldPerWeek), weight: 2,
+      text: `Im Planspiel fehlen Abnehmer für ${amount(site.unsoldPerWeek ?? 0, 'kg pro Woche', 1)} [M].`,
+      reply: 'Passt die Farmgröße an oder klärt Zusagen weiterer Kunden [M].' },
+    { criterion: 'environment', applies: answers.alternative === 'available', weight: 2,
+      text: 'Laut eurer Annahme könnten Gewächshaus oder Freiland dasselbe Ziel erreichen [M].',
+      reply: 'Ein Test sollte zeigen, welchen zusätzlichen Nutzen die Farm hätte [A].' },
+    { criterion: 'environment', text: 'Die Lampen brauchen viel Strom [S].',
+      reply: 'Legt vor einem Test einen Grenzwert für den Strombedarf fest [M].' },
+    { criterion: 'economy', text: 'Die Rechnung enthält Stromkosten. Bau und Personal kommen hinzu [M].',
+      reply: 'Rechnet vor der Förderung alle Kosten pro Kilogramm aus [M].' },
+    { criterion: 'food', text: 'Eine Salatfarm deckt nur einen kleinen Teil der Ernährung ab [D].',
+      reply: 'Bewertet den Beitrag für Blattgemüse anhand eures Förderziels [A].' },
+  ])
+  const texts = (argumentsList: FundingArgument[]) => argumentsList.map(argument => argument.text) as DecisionState['pros']
+  return { pros: texts(pro), cons: texts(con), replyToPro: pro[0].reply, replyToCon: con[0].reply }
+}
+
 export function evaluateFunding(answers: Answers, input: Input, review: FundingReview) {
   if (!hasFundingPriorities(review) || fundingQuestions.some(question => answers[question.id] === undefined)) return null
   const goal = goals[answers.goal!]
@@ -280,6 +359,7 @@ export function evaluateFunding(answers: Answers, input: Input, review: FundingR
   const site = siteChecks(answers, input, review.peakPower)
   const climateResult = review.climateEvidence.trim() ? review.climateResult : undefined
   const judgement = recommend(answers, site, checks, climateResult)
+  const discussion = fundingDiscussion(answers, input, review, site, checks, climateResult)
   const unknown = fundingQuestions.filter(question => answers[question.id] === 'unknown' || question.id === 'alternative' && answers.alternative === 'open')
   const gaps = unknown.map(question => question.topic)
   const localDetails = [
@@ -297,9 +377,11 @@ export function evaluateFunding(answers: Answers, input: Input, review: FundingR
   const draft: DecisionState = {
     ...structuredClone(INITIAL_DECISION), ...structuredClone(options[judgement.option]),
     option: judgement.option, goal: goal.brief, priorities: [...review.priorities], priorityReason: review.priorityReason.trim(),
+    pros: discussion.pros, cons: discussion.cons,
+    response: judgement.option === 'C' ? discussion.replyToPro : discussion.replyToCon,
     criteria: criteriaFor(answers, site, checks, review, climateResult), siteBasis,
     scenarioBasis: `${checks.costDetail} [M]. ${checks.climateDetail}.`,
     uncertainty: climateResult ? 'Vollkosten und die Nachweise aus dem Planspiel vor Ort prüfen.' : 'Vollkosten, Ökobilanz und die Beispielangaben vor Ort prüfen.',
   }
-  return { ...judgement, draft, gaps, checks }
+  return { ...judgement, draft, discussion, gaps, checks }
 }

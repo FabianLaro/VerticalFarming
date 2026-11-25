@@ -47,6 +47,7 @@ export default function App() {
   const [input, setInput] = useState(readScenario)
   const [fundingSession, setFundingSession] = useState(readFundingSession)
   const [source, setSource] = useState<string | null>(null)
+  const [sourceScenario, setSourceScenario] = useState<Input>()
   const [step, setStep] = useState<number | null>(null)
   const result = calculate(input)
 
@@ -109,12 +110,12 @@ export default function App() {
       {stage === 'vergleich' && <ComparePanel input={input} result={result} onSource={setSource} onDecide={() => navigate('entscheidung')} update={(key, value) => setInput(previous => ({ ...previous, [key]: value }))} selectPreset={id => setInput(applyPreset(id))} />}
       {stage === 'entscheidung' && <>
         <div className="atlas-page-heading no-print"><h1>Wie soll Dinslaken fördern?</h1><p>Probiert ein Szenario aus und schreibt eine kurze Empfehlung für die Stadt.</p></div>
-        <Decision input={input} result={result} onSource={setSource} session={fundingSession} setSession={setFundingSession} />
+        <Decision input={input} result={result} onSource={(id, scenario) => { setSourceScenario(scenario); setSource(id) }} session={fundingSession} setSession={setFundingSession} />
         <Conflicts onSource={setSource} />
       </>}
       <footer className="atlas-footer no-print"><span>Geographieprojekt · Dinslaken · Szenariohorizont 2040</span><button type="button" className="atlas-text" onClick={() => setSource('all')}>Quellen und Modellgrenzen <ArrowRight size={16} /></button></footer>
     </main>
-    <SourceDialog source={source} input={input} onClose={() => setSource(null)} />
+    <SourceDialog source={source} input={sourceScenario ?? input} onClose={() => { setSourceScenario(undefined); setSource(null) }} />
   </div>
 }
 

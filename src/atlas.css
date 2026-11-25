@@ -229,6 +229,7 @@
   .atlas-compare-grid { gap: 11px; }
   .atlas-decision-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .atlas-preview { position: static; }
+  .atlas-decision-generated .atlas-preview { grid-row: 1; }
   .atlas-app .atlas-preview-toggle { display: inline-flex; }
   .atlas-preview:not(.atlas-preview-open) .atlas-paper { display: none; }
   .atlas-paper .brief { max-width: 210mm; }

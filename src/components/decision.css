@@ -58,19 +58,6 @@
 .decision-step:first-of-type { border-top: 0; }
 .decision-step > p { font-size: 13px; line-height: 1.55; }
 .decision-step > .atlas-text { margin-top: 5px; }
-.decision-arguments-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
-.argument-fields { min-inline-size: 0; margin: 0; padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px; }
-.argument-fields legend { padding-inline: 5px; font-size: 13px; font-weight: 750; }
-.argument-field { padding-block: 9px; border-top: 1px solid var(--line); }
-.argument-field:first-of-type { border-top: 0; }
-.argument-field .decision-field { margin-bottom: 5px; }
-.argument-source { display: flex; flex-wrap: wrap; align-items: end; gap: 4px 10px; font-size: 12px; }
-.argument-source label { display: grid; flex: 1 1 100%; min-width: 0; gap: 3px; }
-.argument-source select { width: 100%; min-height: 37px; padding: 4px 7px; border: 1px solid #b9c4b8; border-radius: 3px; background: #fff; color: inherit; font: inherit; }
-.argument-source .atlas-text { font-size: 12px; }
-.decision-weighing { display: grid; gap: 9px; margin: 10px 0; padding: 10px 12px; background: #eff1e7; border-radius: 6px; }
-.decision-weighing dt { font-size: 13px; font-weight: 750; }
-.decision-weighing dd { margin: 1px 0 0; overflow-wrap: anywhere; }
 .brief-arguments li > strong { display: block; }
 .decision-identification { display: grid; grid-template-columns: 1fr 200px; gap: 18px; }
 .decision-hint { color: var(--muted, #59675d); font-size: 12px; line-height: 1.6; margin: 8px 0; }
@@ -143,7 +130,7 @@
   .decision-option { padding: 12px 8px; gap: 7px; grid-template-columns: 18px 18px minmax(0, 1fr); }
   .decision-option > span:last-child { display: block; }
   .decision-option small { display: block; margin-top: 4px; }
-  .decision-arguments-editor, .decision-identification { grid-template-columns: 1fr; gap: 8px; }
+  .decision-identification { grid-template-columns: 1fr; gap: 8px; }
   .criterion-editor { grid-template-columns: 1fr; }
   .criterion-editor select, .criterion-evidence { grid-column: 1; }
   .criterion-source { grid-template-columns: 1fr; }

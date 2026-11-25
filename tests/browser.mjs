@@ -60,10 +60,8 @@ async function choosePriorities(page) {
   await priorities.getByRole('textbox', { name: 'Warum diese beiden?' }).fill('Liefermengen und Klimaeffekte begründen.')
 }
 
-async function finishDraft(page) {
-  await page.getByRole('button', { name: 'Freie Felder mit Beispielen füllen', exact: true }).click()
+async function identifyGroup(page) {
   await page.getByRole('textbox', { name: 'Name(n)', exact: true }).fill('Testgruppe')
-  await page.getByRole('textbox', { name: 'Unsere Antwort auf den Einwand', exact: true }).fill('Die Stadt prüft Strombedarf und Kosten vor einer Förderung.')
 }
 
 async function screenshot(page, name) { await page.screenshot({ path: `${output}/browser-${name}.png`, fullPage: true }) }
@@ -215,7 +213,7 @@ await check('Strukturiertes Datenverzeichnis exportiert Quellen, Metadaten und a
   await page.getByRole('button', { name: 'Basisszenario wiederherstellen' }).click()
 })
 
-await check('Fragenkatalog begründet einen Pilot und öffnet die Quelle direkt im Brief', async () => {
+await check('Fragenkatalog erstellt sechs belegte Argumente und aktualisiert sie nach geänderten Antworten', async () => {
   const quizContext = await context()
   const qp = await quizContext.newPage()
   await load(qp)
@@ -291,34 +289,25 @@ await check('Fragenkatalog begründet einen Pilot und öffnet die Quelle direkt 
   await expect(brief).toContainText('4,06 (Referenzmix)')
   const print = qp.getByRole('button', { name: 'PDF drucken', exact: true })
   await expect(print).toBeDisabled()
-  const pro = 'Mensen könnten Salat auch im Winter bekommen.'
-  const con = 'Die Lampen erhöhen den Strombedarf.'
-  const proField = qp.getByRole('textbox', { name: 'Argument 1 dafür', exact: true })
-  const conField = qp.getByRole('textbox', { name: 'Argument 1 dagegen', exact: true })
-  await proField.fill(pro)
-  await qp.getByRole('combobox', { name: 'Quelle für Argument 1 dafür', exact: true }).selectOption('dlr2019')
-  await conField.fill(con)
-  const conSource = qp.getByRole('combobox', { name: 'Quelle für Argument 1 dagegen', exact: true })
-  await conSource.selectOption('pennisi2025')
-  await conField.press('End')
-  await conField.press('Space')
-  await expect(conField).toHaveValue(con + ' ')
-  await conField.press('Backspace')
-  await finishDraft(qp)
-  await expect(proField).toHaveValue(pro)
-  await expect(conField).toHaveValue(con)
-  await expect(qp.locator('.decision-weighing')).toContainText(pro)
-  await expect(qp.locator('.decision-weighing')).toContainText(con)
-  await expect(brief.locator('.brief-arguments section').nth(0)).toContainText('Wichtigster Grund')
-  await expect(brief.locator('.brief-arguments section').nth(1)).toContainText('Stärkster Einwand')
+  const pro = brief.locator('.brief-arguments section').nth(0)
+  const con = brief.locator('.brief-arguments section').nth(1)
+  await expect(pro.locator('li')).toHaveCount(3)
+  await expect(con.locator('li')).toHaveCount(3)
+  await expect(brief.locator('.brief-arguments li .brief-citations')).toHaveCount(6)
+  await expect(qp.getByRole('textbox', { name: /Argument 1/ })).toHaveCount(0)
+  await expect(pro).toContainText('Wichtigster Grund')
+  await expect(con).toContainText('Stärkster Einwand')
+  await expect(con).toContainText('Im Planspiel fehlen Abnehmer für 2.000 kg pro Woche')
+  await expect(brief).toContainText('Passt die Farmgröße an oder klärt Zusagen weiterer Kunden')
+  await identifyGroup(qp)
   await expect(print).toBeEnabled()
-  await brief.getByRole('button', { name: 'Quelle Pennisi et al. 2025', exact: true }).first().click()
-  await expect(qp.getByRole('dialog')).toContainText('Abb. 3, S. 5')
+  await qp.pdf({ path: `${output}/browser-generated-decision-brief.pdf`, preferCSSPageSize: true, printBackground: true })
+  await pro.getByRole('button', { name: /Quelle DLR 2019/ }).first().click()
+  await expect(qp.getByRole('dialog')).toContainText('EDEN ISS')
   await qp.keyboard.press('Escape')
   await qp.reload({ waitUntil: 'domcontentloaded' })
   await expect(brief).toBeVisible()
-  await expect(proField).toHaveValue(pro)
-  await expect(conSource).toHaveValue('pennisi2025')
+  await expect(con).toContainText('Im Planspiel fehlen Abnehmer für 2.000 kg pro Woche')
   await qp.getByRole('button', { name: 'Antworten ändern', exact: true }).click()
   await expect(qp.getByText('Frage 1 von 9', { exact: true })).toBeVisible()
   await expect(supply).toHaveAttribute('aria-pressed', 'true')
@@ -327,11 +316,11 @@ await check('Fragenkatalog begründet einen Pilot und öffnet die Quelle direkt 
   await qp.getByRole('button', { name: 'Frage 9: Ergebnis des Farmtests', exact: true }).click()
   await answerButton('Decision Brief erstellen').click()
   await expect(qp.getByRole('heading', { name: 'Andere Versorgung fördern', exact: true })).toBeVisible()
-  await expect(proField).toHaveValue(pro)
-  await expect(conField).toHaveValue(con)
-  await expect(qp.getByRole('textbox', { name: 'Unsere Antwort auf den Einwand', exact: true })).toHaveValue('Die Stadt prüft Strombedarf und Kosten vor einer Förderung.')
-  await expect(brief.locator('.brief-arguments section').nth(0)).toContainText('Stärkster Einwand')
-  await expect(brief.locator('.brief-arguments section').nth(1)).toContainText('Wichtigster Grund')
+  await expect(pro).toContainText('Stärkster Einwand')
+  await expect(con).toContainText('Wichtigster Grund')
+  await expect(con.locator('li').first()).toContainText('Die Beispielhalle ist 500 m² zu klein')
+  await expect(brief).toContainText('Prüft, ob Gewächshäuser oder andere Lieferanten im Winter dieselbe Menge liefern')
+  await expect(print).toBeEnabled()
   await qp.getByRole('button', { name: 'Antworten ändern', exact: true }).click()
   await environment.click()
   await qp.reload({ waitUntil: 'domcontentloaded' })
@@ -353,7 +342,21 @@ await check('Fragenkatalog bietet einen Einstieg ohne Standortdaten', async () =
   await qp.getByRole('button', { name: 'Ohne Standortdaten zum Brief', exact: true }).click()
   const brief = qp.getByRole('article', { name: 'Druckbarer Decision Brief' })
   await expect(brief).toContainText('Halle, Stromanschluss und Abnahmemenge sind offen.')
-  await expect(qp.getByRole('textbox', { name: 'Argument 1 dafür', exact: true })).toBeVisible()
+  await expect(brief.locator('.brief-arguments li .brief-citations')).toHaveCount(6)
+  await identifyGroup(qp)
+  await qp.evaluate(() => {
+    const key = 'stadtlabor2040-decision-generated-v2'
+    const old = JSON.parse(localStorage.getItem(key))
+    old.pros = ['', '', '']
+    old.cons = ['', '', '']
+    old.response = ''
+    localStorage.setItem('stadtlabor2040-decision-generated-v1', JSON.stringify(old))
+    localStorage.removeItem(key)
+  })
+  await qp.reload({ waitUntil: 'domcontentloaded' })
+  await expect(brief.locator('.brief-arguments li .brief-citations')).toHaveCount(6)
+  await expect(brief).toContainText('Testgruppe')
+  await expect(qp.getByRole('button', { name: 'PDF drucken', exact: true })).toBeEnabled()
   await quizContext.close()
 })
 
@@ -428,16 +431,22 @@ await check('Fragenkatalog berechnet Option A mit direkt geänderten Modellwerte
   await button('Decision Brief erstellen').click()
   const heading = qp.getByRole('heading', { name: 'Breite Investitionsförderung', exact: true })
   await expect(heading).toBeVisible()
-  await finishDraft(qp)
-  await button('Vorschau öffnen').click()
+  await identifyGroup(qp)
   const brief = qp.getByRole('article', { name: 'Druckbarer Decision Brief' })
   await expect(brief).toContainText('Anschluss 1.200 kW (Ø Bedarf 534,2, Spitze 700 kW)')
   await expect(brief).toContainText('Stromkosten 2 €/kg')
   await expect(brief).toContainText('Strombeitrag beim gewählten Mix 0,01 kg CO₂eq/kg')
   await expect(button('PDF drucken')).toBeEnabled()
+  await brief.locator('.brief-arguments').getByRole('button', { name: 'Quelle Eigene Modellannahme', exact: true }).first().click()
+  const [download] = await Promise.all([
+    qp.waitForEvent('download'),
+    button('Strukturiertes Datenverzeichnis speichern').click(),
+  ])
+  const data = JSON.parse(await fs.readFile(await download.path(), 'utf8'))
+  assert.equal(data.currentScenario.input.footprint, 2000)
+  await qp.keyboard.press('Escape')
   await qp.reload({ waitUntil: 'domcontentloaded' })
   await expect(heading).toBeVisible()
-  await button('Vorschau öffnen').click()
   await expect(brief).toContainText('0,9 bei Grenze 1 kg CO₂eq/kg laut Planspielbilanz')
   await button('Antworten ändern').click()
   await next.click()

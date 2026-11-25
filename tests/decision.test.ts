@@ -4,9 +4,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { createElement } from 'react'
 import { Brief, INITIAL_DECISION, argumentFocus, briefText, countWords } from '../src/components/Brief'
 import { BASE_INPUT, calculate } from '../src/lib/model'
-import { citationMarker, citeArgument, criterionEvidence, decisionReferences, evidenceWithoutCitation, restoredCriterionSource, selectCriterionSource, splitArgument } from '../src/lib/citations'
+import { citationMarker, criterionEvidence, decisionReferences, evidenceWithoutCitation, restoredCriterionSource, selectCriterionSource } from '../src/lib/citations'
 
-describe('Eigene Argumente im Brief', () => {
+describe('Abwägung im Brief', () => {
   it('ordnet Grund und Einwand passend zur Förderentscheidung zu', () => {
     const draft = structuredClone(INITIAL_DECISION)
     draft.pros[0] = 'Mensen könnten im Winter Salat beziehen [D].'
@@ -19,12 +19,6 @@ describe('Eigene Argumente im Brief', () => {
     assert.match(briefText(draft, BASE_INPUT, calculate(BASE_INPUT)), /Stärkster Einwand Mensen könnten im Winter Salat beziehen/u)
   })
 
-  it('erhält Texteingabe, Satzzeichen und bisherige Mehrfachbelege', () => {
-    for (const text of ['Lampenkosten ', 'Lampenkosten.', '', 'Punkt 1\nPunkt 2']) {
-      const sources = ['pennisi2025', 'stanghellini2024']
-      assert.deepEqual(splitArgument(citeArgument(text, sources)), { text, sources })
-    }
-  })
 })
 
 describe('Quellenwahl im Förderurteil', () => {

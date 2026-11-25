@@ -123,7 +123,7 @@ export function briefText(state: DecisionState, input: Input, result: Result): s
     ...state.criteria.map(criterion => `${criterion.label} ${criterion.symbol} ${criterionEvidence(criterion)}`),
     '+ dafür · ± bedingt · − dagegen · ? Daten fehlen',
     'Zwei Prioritäten', state.priorities.map(id => state.criteria.find(criterion => criterion.id === id)?.label).join(', '), state.priorityReason,
-    ...(state.counterargument.trim() ? ['Stärkster Einwand', state.counterargument] : []), 'Unsere Antwort auf den Einwand', state.response,
+    ...(state.counterargument.trim() ? ['Stärkster Einwand', state.counterargument] : []), 'Antwort auf den Einwand', state.response,
     'Größte Unsicherheit', state.uncertainty,
     'Frage zum Zielkonflikt', state.conflictQuestion, 'Frage zum Vergleich', state.comparisonQuestion,
     'Kurzbelege', decisionReferences(state),
@@ -185,7 +185,7 @@ export function Brief({ state, input, result, valid, onSource }: BriefProps) {
     </div>
     <div className="brief-closing">
       {state.counterargument.trim() && <p><strong>Stärkster Einwand</strong> {cite(state.counterargument)}</p>}
-      <p><strong>Unsere Antwort auf den Einwand</strong> {cite(state.response)}</p>
+      <p><strong>Antwort auf den Einwand</strong> {cite(state.response)}</p>
     </div>
     <figure className="brief-chart">
       <figcaption><strong>{chart.title}</strong><span>{cite(chart.caption)}</span></figcaption>

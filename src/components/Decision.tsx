@@ -3,17 +3,18 @@ import { PARAMS, calculate } from '../lib/model'
 import type { Input, InputKey, Result } from '../lib/model'
 import type { Dispatch, SetStateAction } from 'react'
 import { ArrowCounterClockwise } from '@phosphor-icons/react'
-import { Brief, INITIAL_DECISION, OPTIONS, argumentFocus, briefText, countWords, recommendationSentences } from './Brief'
+import { Brief, INITIAL_DECISION, OPTIONS, briefText, countWords, recommendationSentences } from './Brief'
 import type { CriterionId, DecisionState, Verdict } from './Brief'
 import { getSource, sources } from '../data/catalog'
-import { citationMarker, citeArgument, hasCitation, evidenceWithoutCitation, restoredCriterionSource, selectCriterionSource, splitArgument } from '../lib/citations'
+import { citationMarker, hasCitation, evidenceWithoutCitation, restoredCriterionSource, selectCriterionSource } from '../lib/citations'
 import { FundingQuestionnaire, FundingSummary } from './FundingQuestionnaire'
 import { evaluateFunding, fundingQuestions, hasFundingPriorities, openSiteAnswers, restoreAnswers, restoreFundingReview } from '../lib/funding-questionnaire'
 import type { Answers, FundingReview, QuestionId } from '../lib/funding-questionnaire'
 import './decision.css'
 
 const STORAGE_KEY = 'stadtlabor2040-decision-v1'
-const GENERATED_KEY = 'stadtlabor2040-decision-generated-v1'
+const LEGACY_GENERATED_KEY = 'stadtlabor2040-decision-generated-v1'
+const GENERATED_KEY = 'stadtlabor2040-decision-generated-v2'
 const QUESTIONNAIRE_KEY = 'stadtlabor2040-funding-answers-v1'
 const MAX_BRIEF_HEIGHT = 273 * 96 / 25.4
 
@@ -30,17 +31,16 @@ function measureBrief(): number | null {
   finally { copy.remove() }
 }
 
-type StoredDecision = DecisionState & { optionReviewed?: boolean; farmArguments?: boolean }
-
-const emptyArguments = (): DecisionState['pros'] => ['', '', '']
+type StoredDecision = DecisionState & { optionReviewed?: boolean }
+type FundingDiscussion = NonNullable<ReturnType<typeof evaluateFunding>>['discussion']
 
 function newBrief(draft: DecisionState): DecisionState {
-  return { ...draft, names: '', date: new Date().toLocaleDateString('sv-SE'), pros: emptyArguments(), cons: emptyArguments(), counterargument: '', response: '' }
+  return { ...draft, names: '', date: new Date().toLocaleDateString('sv-SE') }
 }
 
 function initialState(storageKey: string, fallback = INITIAL_DECISION): { draft: DecisionState; confirmed: boolean } {
   try {
-    const raw = localStorage.getItem(storageKey)
+    const raw = localStorage.getItem(storageKey) ?? (storageKey === GENERATED_KEY ? localStorage.getItem(LEGACY_GENERATED_KEY) : null)
     if (raw) {
       const parsed = JSON.parse(raw) as StoredDecision
       const strings: (keyof DecisionState)[] = ['names', 'date', 'recommendation', 'priorityReason', 'counterargument', 'response', 'uncertainty', 'conflictQuestion', 'comparisonQuestion']
@@ -55,11 +55,9 @@ function initialState(storageKey: string, fallback = INITIAL_DECISION): { draft:
         && parsed.priorities.every(id => INITIAL_DECISION.criteria.some(criterion => criterion.id === id))
         && Array.isArray(parsed.criteria) && parsed.criteria.length === 5
         && parsed.criteria.every((criterion, index) => criterion.id === INITIAL_DECISION.criteria[index].id && typeof criterion.evidence === 'string' && ['+', '±', '−', '?'].includes(criterion.symbol))
-      // Older generated briefs for C listed reasons for the alternative under "Dafür".
-      const reverseArguments = storageKey === GENERATED_KEY && !parsed.farmArguments && fallback.option === 'C'
       if (valid) return {
         confirmed: typeof parsed.optionReviewed === 'boolean' ? parsed.optionReviewed : parsed.option === 'B',
-        draft: { ...parsed, pros: reverseArguments ? parsed.cons : parsed.pros, cons: reverseArguments ? parsed.pros : parsed.cons, siteBasis: typeof parsed.siteBasis === 'string' ? parsed.siteBasis : undefined, scenarioBasis: typeof parsed.scenarioBasis === 'string' ? parsed.scenarioBasis : undefined, goal: typeof parsed.goal === 'string' ? parsed.goal : INITIAL_DECISION.goal, criteria: parsed.criteria.map((criterion, index) => ({ ...INITIAL_DECISION.criteria[index], symbol: criterion.symbol, evidence: criterion.evidence, source: restoredCriterionSource(criterion.source, INITIAL_DECISION.criteria[index].source) })) },
+        draft: { ...parsed, siteBasis: typeof parsed.siteBasis === 'string' ? parsed.siteBasis : undefined, scenarioBasis: typeof parsed.scenarioBasis === 'string' ? parsed.scenarioBasis : undefined, goal: typeof parsed.goal === 'string' ? parsed.goal : INITIAL_DECISION.goal, criteria: parsed.criteria.map((criterion, index) => ({ ...INITIAL_DECISION.criteria[index], symbol: criterion.symbol, evidence: criterion.evidence, source: restoredCriterionSource(criterion.source, INITIAL_DECISION.criteria[index].source) })) },
       }
     }
   } catch { /* Local storage is optional, including in private browsing. */ }
@@ -69,7 +67,7 @@ function initialState(storageKey: string, fallback = INITIAL_DECISION): { draft:
 interface DecisionProps {
   input: Input
   result: Result
-  onSource: (id: string) => void
+  onSource: (id: string, scenario?: Input) => void
 }
 
 const symbols: { value: Verdict; label: string }[] = [
@@ -101,26 +99,30 @@ function FundingOptionComparison({ onSource }: Pick<DecisionProps, 'onSource'>) 
   return <details className="decision-details option-comparison"><summary>Förderoptionen anhand der fünf Kriterien vergleichen</summary><p>Beispielurteile als Diskussionsgrundlage. Standortdaten fehlen; die Symbole ergeben keine Rangliste.</p><div className="option-comparison-scroll" tabIndex={0} role="region" aria-label="Vergleich der Förderoptionen, horizontal scrollbar"><table><caption>Qualitativer Vergleich von A, B und C</caption><thead><tr><th scope="col">Kriterium</th>{OPTIONS.map(option => <th key={option.id} scope="col">{option.id} · {option.label}</th>)}</tr></thead><tbody>{INITIAL_DECISION.criteria.map((criterion, index) => <tr key={criterion.id}><th scope="row">{criterion.label}</th>{OPTIONS.map(option => { const assessment = optionComparison[option.id][index]; return <td key={option.id}><strong className="comparison-verdict" aria-label={symbols.find(symbol => symbol.value === assessment.symbol)?.label}>{assessment.symbol}</strong><p>{assessment.evidence}</p><button type="button" className="source-button" onClick={() => onSource(assessment.source)}>Beleg / Grenze</button></td> })}</tr>)}</tbody></table></div><p className="decision-hint">+ dafür · ± nur unter Bedingungen · − dagegen · ? Daten fehlen</p></details>
 }
 
-function DecisionEditor({ input, result, onSource, generated, onDraftChange }: DecisionProps & { generated?: DecisionState; onDraftChange?: (draft: DecisionState) => void }) {
+function DecisionEditor({ input, result, onSource, generated, discussion, onDraftChange }: DecisionProps & { generated?: DecisionState; discussion?: FundingDiscussion; onDraftChange?: (draft: DecisionState) => void }) {
   const storageKey = generated ? GENERATED_KEY : STORAGE_KEY
   const editor = useRef<HTMLElement>(null)
   const [initial] = useState(() => initialState(storageKey, generated))
   const [state, setState] = useState(initial.draft)
   const [confirmed, setConfirmed] = useState(initial.confirmed)
-  const [showPreview, setShowPreview] = useState(false)
+  const [showPreview, setShowPreview] = useState(Boolean(discussion))
   const [saved, setSaved] = useState(true)
   const [layoutHeight, setLayoutHeight] = useState<number | null>(null)
-  const words = countWords(briefText(state, input, result))
+  const printable = discussion ? {
+    ...state,
+    pros: discussion.pros, cons: discussion.cons, counterargument: '',
+    response: state.option === 'C' ? discussion.replyToPro : discussion.replyToCon,
+  } : state
+  const words = countWords(briefText(printable, input, result))
   const sentences = recommendationSentences(state)
-  const focus = argumentFocus(state)
-  const missingArguments = [...state.pros, ...state.cons].some(argument => !splitArgument(argument).text.trim() || !hasCitation(argument))
+  const missingArguments = [...printable.pros, ...printable.cons].some(argument => !hasCitation(argument))
   const missingDetails = [state.goal, state.recommendation, ...state.conditions, state.priorityReason, state.uncertainty, state.conflictQuestion, state.comparisonQuestion, ...state.criteria.map(criterion => criterion.evidence)].some(text => !text.trim())
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(state.date) && Number.isFinite(Date.parse(state.date)) && new Date(state.date).toISOString().slice(0, 10) === state.date
   const missing = [
     !state.names.trim() || !validDate ? 'Tragt Namen und Datum ein.' : '',
-    missingArguments ? 'Ergänzt je drei Argumente mit einer Quelle.' : '',
-    !state.response.trim() ? 'Beantwortet den stärksten Einwand.' : '',
-    state.priorities.length !== 2 || missingDetails ? 'Vervollständigt die Angaben unter „Brief fertig machen“.' : '',
+    missingArguments ? 'Die Argumente brauchen je einen Beleg.' : '',
+    !printable.response.trim() ? 'Beantwortet den stärksten Einwand.' : '',
+    state.priorities.length !== 2 || missingDetails ? 'Vervollständigt die Angaben unter „Angaben für die Abgabe“.' : '',
     !confirmed ? 'Prüft die Begründung für eure neue Empfehlung.' : '',
     sentences > 3 ? 'Kürzt Empfehlung und Bedingungen auf zusammen drei Sätze.' : '',
     words > 450 ? 'Kürzt den Brief auf höchstens 450 Wörter.' : '',
@@ -131,7 +133,7 @@ function DecisionEditor({ input, result, onSource, generated, onDraftChange }: D
 
   useEffect(() => {
     onDraftChange?.(state)
-    try { localStorage.setItem(storageKey, JSON.stringify({ ...state, optionReviewed: confirmed, farmArguments: true })); setSaved(true) }
+    try { localStorage.setItem(storageKey, JSON.stringify({ ...state, optionReviewed: confirmed })); setSaved(true) }
     catch { setSaved(false) }
   }, [state, confirmed, storageKey, onDraftChange])
 
@@ -170,83 +172,35 @@ function DecisionEditor({ input, result, onSource, generated, onDraftChange }: D
     update('priorities', state.priorities.includes(id) ? state.priorities.filter(value => value !== id) : state.priorities.length < 2 ? [...state.priorities, id] : state.priorities)
   }
 
-  function editList(key: 'pros' | 'cons' | 'conditions', index: number, value: string) {
+  function editCondition(index: number, value: string) {
     setState(previous => {
-      const updated = [...previous[key]]
-      updated[index] = value
-      return { ...previous, [key]: updated }
+      const conditions = [...previous.conditions] as DecisionState['conditions']
+      conditions[index] = value
+      return { ...previous, conditions }
     })
-  }
-
-  function addExamples() {
-    setState(previous => {
-      const fill = (side: 'pros' | 'cons') => previous[side].map((value, index) => value.trim() || INITIAL_DECISION[side][index]) as DecisionState['pros']
-      return { ...previous, pros: fill('pros'), cons: fill('cons') }
-    })
-  }
-
-  function argumentFields(side: 'pros' | 'cons', label: string) {
-    const isPro = side === 'pros'
-    return <fieldset className="argument-fields">
-      <legend>{label}</legend>
-      {state[side].map((argument, index) => {
-        const field = `Argument ${index + 1} ${isPro ? 'dafür' : 'dagegen'}`
-        const { text, sources: selected } = splitArgument(argument)
-        return <div className="argument-field" key={index}>
-          <label className="decision-field">{index === 0 ? 'Stärkstes Argument' : `Argument ${index + 1}`}
-            <textarea aria-label={field} rows={2} maxLength={190} value={text}
-              placeholder={index === 0 ? (isPro ? 'Ein Vorteil für die Stadt …' : 'Ein Risiko für die Stadt …') : undefined}
-              onChange={event => editList(side, index, citeArgument(event.target.value, selected))} />
-          </label>
-          <div className="argument-source">
-            <label>Quelle
-              <select aria-label={`Quelle für ${field}`} value={selected.join(',')} onChange={event => {
-                const value = event.target.value
-                editList(side, index, citeArgument(text, value ? value.split(',') : []))
-              }}>
-                <option value="">Quelle auswählen</option>
-                {selected.length > 1 && <option value={selected.join(',')}>{selected.map(id => getSource(id)?.short).join(' + ')}</option>}
-                {sources.map(source => <option key={source.id} value={source.id}>{source.short}</option>)}
-              </select>
-            </label>
-            {selected.map(id => <button key={id} type="button" className="atlas-text" onClick={() => onSource(id)} aria-label={`Quelle öffnen: ${getSource(id)?.short}`}>Beleg {citationMarker(id)} ansehen</button>)}
-          </div>
-        </div>
-      })}
-    </fieldset>
   }
 
   const identification = <div className="decision-identification"><label className="decision-field">Name(n)<input type="text" maxLength={100} value={state.names} onChange={event => update('names', event.target.value)} /></label><label className="decision-field">Datum<input type="date" value={state.date} onChange={event => update('date', event.target.value)} /></label></div>
 
-  return <div className="atlas-decision-grid">
+  return <div className={discussion ? 'atlas-decision-grid atlas-decision-generated' : 'atlas-decision-grid'}>
     <section ref={editor} className="decision-panel no-print" aria-labelledby="decision-heading" data-print-height={layoutHeight ?? undefined}>
-      <h2 id="decision-heading">Euren Brief schreiben</h2>
+      <h2 id="decision-heading">Brief anpassen</h2>
       <section className="decision-step">
-        <h3>1. Argumente sammeln</h3>
-        <p>Was spricht für oder gegen eine Vertical Farm in Dinslaken? Setzt euer stärkstes Argument jeweils nach oben. Wählt zu jedem Punkt eine Quelle, die ihn stützt.</p>
-        <button type="button" className="atlas-text" onClick={addExamples}>Freie Felder mit Beispielen füllen</button>
-        <div className="decision-arguments-editor">{argumentFields('pros', 'Für die Förderung')}{argumentFields('cons', 'Gegen die Förderung')}</div>
-      </section>
-      <section className="decision-step">
-        <h3>2. Argumente abwägen</h3>
         <fieldset className="decision-options"><legend>Was soll die Stadt tun?</legend>{OPTIONS.map(option => <label key={option.id} className={state.option === option.id ? 'decision-option selected' : 'decision-option'}><input type="radio" name="funding-option" value={option.id} checked={state.option === option.id} onChange={() => { update('option', option.id); setConfirmed(false) }} /><span className="option-letter">{option.id}</span><span><strong>{option.label}</strong><small>{option.description}</small></span></label>)}</fieldset>
-        <dl className="decision-weighing">
-          <div><dt>Wichtigster Grund für eure Wahl</dt><dd>{splitArgument(focus.reasonText).text.trim() || 'Ergänzt das erste Argument auf der passenden Seite.'}</dd></div>
-          <div><dt>Stärkster Einwand gegen eure Wahl</dt><dd>{splitArgument(focus.objectionText).text.trim() || 'Ergänzt das erste Argument auf der anderen Seite.'}</dd></div>
-        </dl>
-        {state.counterargument.trim() && <button type="button" className="atlas-text" onClick={() => update('counterargument', '')}>Erstes Argument als Einwand übernehmen</button>}
-        <label className="decision-field">Unsere Antwort auf den Einwand
-          <textarea rows={2} maxLength={240} value={state.response} onChange={event => update('response', event.target.value)}
-            placeholder="Der Einwand ist wichtig. Wir empfehlen trotzdem …, weil …" />
-        </label>
+        {!discussion && <details className="decision-details">
+          <summary>Antwort auf den Einwand</summary>
+          <label className="decision-field">Antwort
+            <textarea rows={2} maxLength={240} value={state.response} onChange={event => update('response', event.target.value)} />
+          </label>
+        </details>}
         {!confirmed && <p className="decision-hint">Prüft, ob eure Erklärung und die zwei Bedingungen zur neuen Wahl passen. <button type="button" className="atlas-text" onClick={() => setConfirmed(true)}>Begründung geprüft</button></p>}
       </section>
       <section className="decision-step">
-        <h3>3. Brief fertig machen</h3>
+        <h3>Angaben für die Abgabe</h3>
         {identification}
         <details className="decision-details atlas-recommendation"><summary>Empfehlung und Bedingungen</summary>
           <label className="decision-field">Eure Empfehlung mit Begründung<textarea aria-label="Empfehlung mit wichtigster Begründung" rows={2} maxLength={350} value={state.recommendation} onChange={event => update('recommendation', event.target.value)} /></label>
-          {state.conditions.map((condition, index) => <label className="decision-field" key={index}>Bedingung {index + 1}<textarea rows={2} maxLength={260} value={condition} onChange={event => editList('conditions', index, event.target.value)} /></label>)}
+          {state.conditions.map((condition, index) => <label className="decision-field" key={index}>Bedingung {index + 1}<textarea rows={2} maxLength={260} value={condition} onChange={event => editCondition(index, event.target.value)} /></label>)}
           <p className={sentences <= 3 ? 'decision-hint' : 'decision-hint invalid'}>{sentences} von 3 Sätzen. Schreibt je einen Satz pro Feld.</p>
         </details>
         <details className="decision-details"><summary>Ziel der Stadt und zwei wichtigste Kriterien</summary>
@@ -295,7 +249,7 @@ function DecisionEditor({ input, result, onSource, generated, onDraftChange }: D
         <button type="button" className="atlas-outline atlas-preview-toggle" onClick={() => setShowPreview(value => !value)} aria-expanded={showPreview}>{showPreview ? 'Vorschau schließen' : 'Vorschau öffnen'}</button>
         <button type="button" className="atlas-primary atlas-print" onClick={printBrief} disabled={!valid}>PDF drucken</button>
       </div>
-      <div className="atlas-paper"><Brief state={state} input={input} result={result} valid={valid} onSource={onSource} /></div>
+      <div className="atlas-paper"><Brief state={printable} input={input} result={result} valid={valid} onSource={id => onSource(id, input)} /></div>
     </aside>
   </div>
 }
@@ -371,6 +325,7 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
     try {
       localStorage.removeItem(QUESTIONNAIRE_KEY)
       localStorage.removeItem(GENERATED_KEY)
+      localStorage.removeItem(LEGACY_GENERATED_KEY)
     } catch { /* The in-memory state can still be reset. */ }
     setLatestDraft(undefined)
     setSession(newSession())
@@ -385,12 +340,10 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
     const draft = {
       ...evaluation.draft,
       names: existing.names, date: existing.date,
-      pros: existing.pros, cons: existing.cons,
-      counterargument: existing.counterargument, response: existing.response,
     }
     const completedSession: Session = { answers, review, index: session.index, complete: true, scenario: { ...input } }
     try {
-      localStorage.setItem(GENERATED_KEY, JSON.stringify({ ...draft, optionReviewed: true, farmArguments: true }))
+      localStorage.setItem(GENERATED_KEY, JSON.stringify({ ...draft, optionReviewed: true }))
       localStorage.setItem(QUESTIONNAIRE_KEY, JSON.stringify(completedSession))
     } catch { /* The completed result is still available in memory. */ }
     setLatestDraft(draft)
@@ -404,7 +357,7 @@ export function Decision({ session, setSession, ...props }: DecisionProps & { se
   return <>
     {outcome ? <>
       <FundingSummary outcome={outcome} answers={session.answers} onEdit={goTo} onManual={() => setManual(true)} onRecalculate={changedScenario ? () => generate(props.input, { ...session.review, peakPower: undefined, climateResult: undefined, climateEvidence: '' }) : undefined} />
-      <DecisionEditor key={`questionnaire-${JSON.stringify(evaluatedInput)}`} {...props} input={evaluatedInput} result={calculate(evaluatedInput)} generated={latestDraft ?? newBrief(outcome.draft)} onDraftChange={setLatestDraft} />
+      <DecisionEditor key={`questionnaire-${JSON.stringify(evaluatedInput)}`} {...props} input={evaluatedInput} result={calculate(evaluatedInput)} generated={latestDraft ?? newBrief(outcome.draft)} discussion={outcome.discussion} onDraftChange={setLatestDraft} />
     </> : <FundingQuestionnaire input={questionInput} answers={session.answers} review={session.review} onReview={updateReview} index={session.index} onAnswer={answer} onGoTo={goTo} onGenerate={() => generate(questionInput)} onQuickStart={() => generate(questionInput, session.review, { ...openSiteAnswers, ...session.answers })} onManual={() => setManual(true)} onUpdateScenario={updateScenario} />}
     <div className="funding-reset no-print">
       <button type="button" className="atlas-outline" onClick={reset} disabled={!session.changes && Object.keys(session.answers).length === 0}>
