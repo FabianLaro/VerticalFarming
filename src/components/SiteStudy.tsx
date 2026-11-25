@@ -30,17 +30,32 @@ export function SiteStudy({ input, result, onSource, onCompare }: StudyProps) {
   const [interactive, setInteractive] = useState(false)
   const [view, setView] = useState<'cutaway' | 'closed' | 'exploded'>('cutaway')
   const [camera, setCamera] = useState<'perspective' | 'top' | 'front'>('perspective')
+  const [cameraFocus, setCameraFocus] = useState<{ part: Part }>()
   const [resetKey, setResetKey] = useState(0)
   const [cameraCommand, setCameraCommand] = useState<{ action: 'left' | 'right' | 'in' | 'out'; seq: number }>()
   const [quality, setQuality] = useState<'low' | 'high' | 'fallback'>(() => window.matchMedia('(pointer: coarse)').matches ? 'low' : 'high')
   const site = sites.find(item => item.id === system)!
   const systemParts = system === 'vertical' ? parts : referenceParts[system]
   const selected = systemParts[part] ?? systemParts.plants!
+  const partLabel = (id: Part) => id === 'water' && system !== 'vertical' ? 'Bewässerung' : partLabels[id]
   function selectSystem(next: System) {
-    if (next !== system) setPart('plants')
+    if (next !== system) {
+      setPart('plants')
+      setCameraFocus(undefined)
+    }
     setSystem(next)
   }
-  const sceneProps = { system, levels: input.levels, footprint: input.footprint, usable: input.usable, selectedPart: part, view, cameraView: camera, resetKey, cameraCommand, quality: quality === 'fallback' ? 'low' as const : quality, onSelect: (id: string) => { if (Object.hasOwn(systemParts, id)) setPart(id as Part) } }
+  function selectPart(id: string) {
+    if (!Object.hasOwn(systemParts, id)) return
+    const next = id as Part
+    setPart(next)
+    if (!interactive || quality === 'fallback') return
+    setCameraFocus({ part: next })
+    if (system === 'field') return
+    if (next === 'shell') setView('closed')
+    else if (view === 'closed') setView('cutaway')
+  }
+  const sceneProps = { system, levels: input.levels, footprint: input.footprint, usable: input.usable, selectedPart: part, view, cameraView: camera, cameraFocus, resetKey, cameraCommand, quality: quality === 'fallback' ? 'low' as const : quality, onSelect: selectPart }
   const fallback = <SceneFallback {...sceneProps} />
 
   return <section className="site-study no-print">
@@ -60,17 +75,20 @@ export function SiteStudy({ input, result, onSource, onCompare }: StudyProps) {
           </div>}
         </div>
         <figcaption className="atlas-model-caption">
-          <span>{site.label} <small>· {interactive ? 'Schematische Geometrie' : 'Feste Renderansicht'}</small></span>
-          <button type="button" className="atlas-outline" onClick={() => setInteractive(value => !value)}>{interactive ? <Eye size={17} /> : <Cube size={17} />}{interactive ? 'Renderansicht' : '3D öffnen'}</button>
+          <span>{site.label} <small>· {cameraFocus ? partLabel(cameraFocus.part) : interactive ? 'Schematische Geometrie' : 'Feste Renderansicht'}</small></span>
+          <button type="button" className="atlas-outline" onClick={() => { setInteractive(value => !value); setCameraFocus(undefined) }}>{interactive ? <Eye size={17} /> : <Cube size={17} />}{interactive ? 'Renderansicht' : '3D öffnen'}</button>
         </figcaption>
         {interactive && <div className="atlas-camera-controls">
-          <div className="segmented" aria-label="Gebäudeansicht">{([['cutaway', 'Schnitt'], ['closed', 'Hülle'], ['exploded', 'Aufbau']] as const).map(([id, label]) => <button type="button" key={id} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}</div>
-          <label>Kamera <select value={camera} onChange={event => setCamera(event.target.value as typeof camera)}><option value="perspective">Räumlich</option><option value="top">Von oben</option><option value="front">Von vorn</option></select></label>
-          <label>Grafik <select value={quality} onChange={event => setQuality(event.target.value as typeof quality)}><option value="high">Detail</option><option value="low">Sparsam</option><option value="fallback">Ersatzschema</option></select></label>
+          <div className="segmented" aria-label="Gebäudeansicht">{([['cutaway', 'Schnitt'], ['closed', 'Hülle'], ['exploded', 'Aufbau']] as const).map(([id, label]) => <button type="button" key={id} aria-pressed={view === id} onClick={() => { setView(id); setCameraFocus(undefined) }}>{label}</button>)}</div>
+          <label>Kamera <select value={cameraFocus ? 'detail' : camera} onChange={event => { setCamera(event.target.value as typeof camera); setCameraFocus(undefined) }}>
+            <option value="perspective">Räumlich</option><option value="top">Von oben</option><option value="front">Von vorn</option>
+            {cameraFocus && <option value="detail" disabled>Detailansicht</option>}
+          </select></label>
+          <label>Grafik <select value={quality} onChange={event => { const next = event.target.value as typeof quality; setQuality(next); if (next === 'fallback') setCameraFocus(undefined) }}><option value="high">Detail</option><option value="low">Sparsam</option><option value="fallback">Ersatzschema</option></select></label>
           {quality !== 'fallback' && <div className="atlas-camera-keys" aria-label="Kamera bewegen">{([
             ['left', 'Nach links drehen', ArrowLeft], ['right', 'Nach rechts drehen', ArrowRight], ['in', 'Vergrößern', Plus], ['out', 'Verkleinern', Minus],
           ] as const).map(([action, label, Icon]) => <button type="button" className="atlas-icon" title={label} aria-label={label} key={action} onClick={() => setCameraCommand(previous => ({ action, seq: (previous?.seq ?? 0) + 1 }))}><Icon size={17} /></button>)}</div>}
-          <button type="button" className="atlas-text" onClick={() => { setCamera('perspective'); setResetKey(value => value + 1) }}>Kamera zurücksetzen</button>
+          <button type="button" className="atlas-text" onClick={() => { setCamera('perspective'); setCameraFocus(undefined); setResetKey(value => value + 1) }}>Kamera zurücksetzen</button>
         </div>}
       </figure>
     </div>
@@ -83,7 +101,7 @@ export function SiteStudy({ input, result, onSource, onCompare }: StudyProps) {
     <section className="atlas-site-detail" aria-label="Standort und Bauteile">
       <div><h2>Was der Standort braucht</h2><p>{site.requirement}</p><small>Standorttypen im Szenario, ohne geprüftes Grundstück.</small>{system === 'greenhouse' && <button type="button" className="atlas-text" onClick={() => onSource('fraunhofer')}>ALTMARKTgarten Oberhausen <ArrowRight size={15} /></button>}</div>
       <div>
-        <div className="atlas-parts" aria-label="Bauteil auswählen">{(Object.keys(systemParts) as Part[]).map(id => <button type="button" key={id} onClick={() => setPart(id)} aria-pressed={part === id}>{id === 'water' && system !== 'vertical' ? 'Bewässerung' : partLabels[id]}</button>)}</div>
+        <div className="atlas-parts" aria-label="Bauteil auswählen">{(Object.keys(systemParts) as Part[]).map(id => <button type="button" key={id} onClick={() => selectPart(id)} aria-pressed={part === id}>{partLabel(id)}</button>)}</div>
         <div aria-live="polite"><h2>{selected.title}</h2><p>{selected.text}</p></div>
         {system === 'vertical' && part === 'water' && <ul className="atlas-water-flow">
           <li><b>Blau</b> Tank → Pumpe → Anbaurinnen und Wurzeln</li>

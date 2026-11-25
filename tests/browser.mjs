@@ -633,6 +633,46 @@ await check('Reduzierte Bewegung und technische Ersatzansicht', async () => {
   await reduced.close()
 })
 
+await check('3D-Bauteile wechseln die Kamera, bleiben auswählbar und lassen sich erneut fokussieren', async () => {
+  const reduced = await context({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' })
+  try {
+    const rp = await reduced.newPage()
+    await load(rp)
+    await rp.getByRole('button', { name: '3D öffnen', exact: true }).click()
+    await rp.getByRole('combobox', { name: 'Grafik' }).selectOption('low')
+    const markers = rp.getByRole('group', { name: 'Bauteile im 3D-Modell' })
+    const camera = rp.getByRole('combobox', { name: 'Kamera' })
+    const marker = number => markers.getByRole('button', { name: new RegExp(`^${number}:`, 'u') })
+    const canvas = rp.locator('.farm-scene canvas')
+    await marker(3).tap()
+    await expect(camera).toHaveValue('detail')
+    await expect(rp.locator('.atlas-model-caption')).toContainText('Wasser')
+    await expect(rp.getByRole('heading', { name: 'Ein Kreislauf mit Zuflüssen' })).toBeVisible()
+    for (const number of [1, 2, 3, 4, 5, 6]) await expect(marker(number)).toBeVisible()
+    const water = await canvas.screenshot()
+    await marker(5).tap()
+    await expect(marker(5)).toHaveAttribute('aria-pressed', 'true')
+    const harvest = await canvas.screenshot()
+    assert.ok(!harvest.equals(water), 'Wasser und Ernte erzeugen unterschiedliche 3D-Ausschnitte')
+    await rp.getByRole('button', { name: 'Nach rechts drehen' }).tap()
+    await expect.poll(async () => (await canvas.screenshot()).equals(harvest)).toBe(false)
+    const rotated = await canvas.screenshot()
+    await marker(5).press('Enter')
+    await expect(marker(5)).toBeFocused()
+    await expect.poll(async () => (await canvas.screenshot()).equals(rotated)).toBe(false)
+
+    await marker(6).tap()
+    await expect(rp.getByRole('button', { name: 'Hülle', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await marker(2).tap()
+    await expect(rp.getByRole('button', { name: 'Schnitt', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await rp.getByRole('button', { name: 'Kamera zurücksetzen' }).tap()
+    await expect(camera).toHaveValue('perspective')
+    await expect(rp.locator('.farm-scene')).not.toHaveClass(/farm-scene-focused/u)
+  } finally {
+    await reduced.close()
+  }
+})
+
 await check('Keine relevanten Browserfehler und keine externen Laufzeitabrufe', async () => {
   assert.deepEqual(errors, [])
   assert.deepEqual(externalRequests, [])
